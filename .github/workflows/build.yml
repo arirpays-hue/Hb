@@ -28,7 +28,41 @@ jobs:
         run: |
           mkdir -p app/src/main/java/com/example/calculator
           mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/drawable
           cp index.html app/src/main/assets/index.html
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_launcher.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <!-- רקע האייקון -->
+              <path
+                  android:fillColor="#1E1E1E"
+                  android:pathData="M0,0h108v108h-108z"/>
+              <!-- מסגרת המחשבון -->
+              <path
+                  android:fillColor="#2A2A2A"
+                  android:pathData="M26,18h56c4.4,0 8,3.6 8,8v56c0,4.4 -3.6,8 -8,8H26c-4.4,0 -8,-3.6 -8,-8V26c0,-4.4 3.6,-8 8,-8z"/>
+              <!-- מסך תצוגה -->
+              <path
+                  android:fillColor="#121212"
+                  android:pathData="M32,26h44v16H32z"/>
+              <!-- כפתורים רגילים -->
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M32,48h12v12H32zM48,48h12v12H48zM32,64h12v12H32zM48,64h12v12H48z"/>
+              <!-- כפתור פעולה כחול -->
+              <path
+                  android:fillColor="#64B5F6"
+                  android:pathData="M64,48h12v12H64z"/>
+              <!-- כפתור שווה ירוק -->
+              <path
+                  android:fillColor="#00E676"
+                  android:pathData="M64,64h12v12H64z"/>
+          </vector>
+          EOF
 
           cat << 'EOF' > settings.gradle
           pluginManagement {
@@ -73,8 +107,8 @@ jobs:
                   applicationId "com.example.calculator"
                   minSdk 24
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "1.1"
               }
 
               compileOptions {
@@ -89,7 +123,8 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
                   android:label="מחשבון"
-                  android:icon="@android:drawable/sym_def_app_icon"
+                  android:icon="@drawable/ic_launcher"
+                  android:roundIcon="@drawable/ic_launcher"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                   <activity
                       android:name=".MainActivity"
