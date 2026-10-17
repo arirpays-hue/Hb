@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Native Kotlin APK
 
 on:
   push:
@@ -24,44 +24,62 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Generate Android Project Structure
+      - name: Generate Native Kotlin Compose Project
         run: |
           mkdir -p app/src/main/java/com/example/calculator
-          mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/drawable
-          cp index.html app/src/main/assets/index.html
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-          cat << 'EOF' > app/src/main/res/drawable/ic_launcher.xml
+          cp MainActivity.kt app/src/main/java/com/example/calculator/MainActivity.kt
+
+          # רקע הסמל האדפטיבי
+          cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="108dp"
               android:height="108dp"
               android:viewportWidth="108"
               android:viewportHeight="108">
-              <!-- רקע האייקון -->
               <path
-                  android:fillColor="#1E1E1E"
+                  android:fillColor="#141824"
                   android:pathData="M0,0h108v108h-108z"/>
-              <!-- מסגרת המחשבון -->
               <path
-                  android:fillColor="#2A2A2A"
-                  android:pathData="M26,18h56c4.4,0 8,3.6 8,8v56c0,4.4 -3.6,8 -8,8H26c-4.4,0 -8,-3.6 -8,-8V26c0,-4.4 3.6,-8 8,-8z"/>
-              <!-- מסך תצוגה -->
+                  android:fillColor="#1E2538"
+                  android:pathData="M0,54h108v54h-108z"/>
+          </vector>
+          EOF
+
+          # חזית הסמל האדפטיבי (ציור המחשבון)
+          cat << 'EOF' > app/src/main/res/drawable/ic_launcher_foreground.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
               <path
-                  android:fillColor="#121212"
-                  android:pathData="M32,26h44v16H32z"/>
-              <!-- כפתורים רגילים -->
+                  android:fillColor="#262F45"
+                  android:pathData="M33,24h42c3.3,0 6,2.7 6,6v48c0,3.3 -2.7,6 -6,6H33c-3.3,0 -6,-2.7 -6,-6V30c0,-3.3 2.7,-6 6,-6z"/>
+              <path
+                  android:fillColor="#0D0F14"
+                  android:pathData="M33,30h42v14H33z"/>
               <path
                   android:fillColor="#FFFFFF"
-                  android:pathData="M32,48h12v12H32zM48,48h12v12H48zM32,64h12v12H32zM48,64h12v12H48z"/>
-              <!-- כפתור פעולה כחול -->
+                  android:pathData="M33,50h11v11H33zM48.5,50h11v11h-11zM33,65h11v11H33zM48.5,65h11v11h-11z"/>
               <path
                   android:fillColor="#64B5F6"
-                  android:pathData="M64,48h12v12H64z"/>
-              <!-- כפתור שווה ירוק -->
+                  android:pathData="M64,50h11v11H64z"/>
               <path
                   android:fillColor="#00E676"
-                  android:pathData="M64,64h12v12H64z"/>
+                  android:pathData="M64,65h11v11H64z"/>
           </vector>
+          EOF
+
+          # הגדרת הסמל האדפטיבי לאנדרואיד
+          cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
           EOF
 
           cat << 'EOF' > settings.gradle
@@ -79,24 +97,27 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "CalculatorApp"
+          rootProject.name = "NativeCalculator"
           include ':app'
           EOF
 
           cat << 'EOF' > build.gradle
           plugins {
               id 'com.android.application' version '8.2.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
           }
           EOF
 
           cat << 'EOF' > gradle.properties
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8
           android.useAndroidX=true
+          android.nonTransitiveRClass=true
           EOF
 
           cat << 'EOF' > app/build.gradle
           plugins {
               id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
           }
 
           android {
@@ -105,16 +126,36 @@ jobs:
 
               defaultConfig {
                   applicationId "com.example.calculator"
-                  minSdk 24
+                  minSdk 26
                   targetSdk 34
-                  versionCode 2
-                  versionName "1.1"
+                  versionCode 3
+                  versionName "2.0-Native"
+              }
+
+              buildFeatures {
+                  compose true
+              }
+
+              composeOptions {
+                  kotlinCompilerExtensionVersion '1.5.8'
               }
 
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+
+          dependencies {
+              implementation platform('androidx.compose:compose-bom:2024.02.00')
+              implementation 'androidx.activity:activity-compose:1.8.2'
+              implementation 'androidx.compose.ui:ui'
+              implementation 'androidx.compose.animation:animation'
+              implementation 'androidx.compose.material3:material3'
           }
           EOF
 
@@ -123,13 +164,13 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application
                   android:label="מחשבון"
-                  android:icon="@drawable/ic_launcher"
-                  android:roundIcon="@drawable/ic_launcher"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
+                  android:supportsRtl="false"
+                  android:theme="@android:style/Theme.Material.NoActionBar">
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true"
-                      android:configChanges="orientation|screenSize">
+                      android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -139,35 +180,11 @@ jobs:
           </manifest>
           EOF
 
-          cat << 'EOF' > app/src/main/java/com/example/calculator/MainActivity.java
-          package com.example.calculator;
-
-          import android.app.Activity;
-          import android.graphics.Color;
-          import android.os.Bundle;
-          import android.webkit.WebSettings;
-          import android.webkit.WebView;
-
-          public class MainActivity extends Activity {
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  WebView webView = new WebView(this);
-                  webView.setBackgroundColor(Color.parseColor("#121212"));
-                  WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  settings.setDomStorageEnabled(true);
-                  setContentView(webView);
-                  webView.loadUrl("file:///android_asset/index.html");
-              }
-          }
-          EOF
-
-      - name: Build Signed Debug APK
+      - name: Build Signed Native APK
         run: gradle assembleDebug --no-daemon
 
       - name: Upload Ready APK
         uses: actions/upload-artifact@v4
         with:
-          name: Calculator-APK
+          name: Calculator-Native-APK
           path: app/build/outputs/apk/debug/app-debug.apk
