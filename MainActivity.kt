@@ -38,36 +38,26 @@ class MainActivity : Activity() {
     private lateinit var menuBtn: TextView
     private val drawerItemsViews = mutableListOf<View>()
 
-    private var useHaptic = true
-    private var useSound = true
-    private var keepScreenOn = false
-    private var calcPrecision = 8
-    private var buttonCornerStyle = 24f
-    private var primaryColor = Color.parseColor("#64B5F6")
-    private var bgColor = Color.parseColor("#08090C")
-    private var memoryValue = 0.0
-    private var currentTabIndex = 0
-    private val historyList = mutableListOf<String>()
-    private var isDrawerOpen = false
+    private var useHaptic = true; private var useSound = true; private var keepScreenOn = false
+    private var calcPrecision = 8; private var buttonCornerStyle = 24f
+    private var primaryColor = Color.parseColor("#64B5F6"); private var bgColor = Color.parseColor("#08090C")
+    private var memoryValue = 0.0; private var currentTabIndex = 0
+    private val historyList = mutableListOf<String>(); private var isDrawerOpen = false
 
     private val categories = listOf(
         "🧮 מחשבון רגיל", "🔬 מחשבון מדעי fx991", "🧾 מחשבון מע״מ", "🏦 מחשבון הלוואה",
         "📏 המרת מרחקים", "⚖️ המרת משקלים", "🌡️ המרת טמפ׳", "💻 מחשבון מתכנתים",
-        "📊 חישוב אחוזים", "🏷️ חישוב הנחות", "💰 חלוקת טיפים", "🏃 מדד BMI", "🎂 חישוב גיל", "⚙️ הגדרות וערכות נושא"
+        "📊 חישוב אחוזים", "🏷️ חישוב הנחות", "💰 חלוקת טיפים", "🏃 מדד BMI", "🎂 חישוב גיל",
+        "🔥 מחשבון BMR", "➗ משוואות ריבועיות", "⅟ מחשבון שברים", "⚙️ הגדרות וערכות נושא"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE)
-        loadPreferences()
+        prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE); loadPreferences()
 
         rootFrame = FrameLayout(this).apply { layoutDirection = View.LAYOUT_DIRECTION_RTL }
-
-        mainContent = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        }
-
+        mainContent = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT) }
+        
         val topHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(16f)) }
         menuBtn = TextView(this).apply { text = "☰"; setTextColor(Color.WHITE); textSize = 28f; setPadding(0, 0, dp(16f), 0); setOnClickListener { feedback(it); openDrawer() } }
         titleText = TextView(this).apply { text = "מחשבון פרימיום"; setTextColor(Color.WHITE); textSize = 22f; typeface = Typeface.DEFAULT_BOLD; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
@@ -93,8 +83,7 @@ class MainActivity : Activity() {
         rootFrame.addView(mainContent); rootFrame.addView(dimView); rootFrame.addView(drawerScroll)
         drawerScroll.translationX = dp(280f).toFloat()
 
-        setContentView(rootFrame)
-        applyTheme()
+        setContentView(rootFrame); applyTheme()
     }
 
     private fun loadPreferences() {
@@ -108,9 +97,9 @@ class MainActivity : Activity() {
     private fun savePreferences() {
         prefs.edit().putBoolean("useHaptic", useHaptic).putBoolean("useSound", useSound).putBoolean("keepScreenOn", keepScreenOn).putInt("calcPrecision", calcPrecision).putFloat("buttonCornerStyle", buttonCornerStyle).putInt("primaryColor", primaryColor).putInt("bgColor", bgColor).putLong("memoryValue", memoryValue.toRawBits()).putString("history", historyList.take(30).joinToString("||")).apply()
     }
-        private fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
 
-    private fun applyTheme() {
+    private fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        private fun applyTheme() {
         window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor())
         updateDrawerSelection(); switchTab(currentTabIndex)
     }
@@ -147,14 +136,12 @@ class MainActivity : Activity() {
             3 -> createLoanCalculator(); 4 -> createDistanceCalculator(); 5 -> createWeightCalculator()
             6 -> createTempCalculator(); 7 -> createProgrammerCalculator(); 8 -> createPercentageCalculator()
             9 -> createDiscountCalculator(); 10 -> createTipCalculator(); 11 -> createBMICalculator()
-            12 -> createAgeCalculator(); 13 -> createSettingsPage(); else -> createBasicCalculator()
+            12 -> createAgeCalculator(); 13 -> createBmrCalculator(); 14 -> createQuadraticCalculator()
+            15 -> createFractionCalculator(); 16 -> createSettingsPage(); else -> createBasicCalculator()
         }
         contentFrame.addView(view)
     }
 
-    // =========================================================================
-    // מנוע פתרון משוואות מתמטיות מתקדם (fx-991 Parser)
-    // =========================================================================
     private fun evalMathExpression(str: String): Double {
         val expr = str.replace("×", "*").replace("÷", "/").replace("−", "-").replace("π", Math.PI.toString()).replace("e", Math.E.toString()).replace("%", "/100")
         return object : Any() {
@@ -165,8 +152,7 @@ class MainActivity : Activity() {
             fun parseExpression(): Double { var x = parseTerm(); while (true) { if (eat('+'.toInt())) x += parseTerm() else if (eat('-'.toInt())) x -= parseTerm() else return x } }
             fun parseTerm(): Double { var x = parseFactor(); while (true) { if (eat('*'.toInt())) x *= parseFactor() else if (eat('/'.toInt())) x /= parseFactor() else return x } }
             fun parseFactor(): Double {
-                if (eat('+'.toInt())) return parseFactor()
-                if (eat('-'.toInt())) return -parseFactor()
+                if (eat('+'.toInt())) return parseFactor(); if (eat('-'.toInt())) return -parseFactor()
                 var x: Double; val startPos = pos
                 if (eat('('.toInt())) { x = parseExpression(); eat(')'.toInt()) }
                 else if (ch >= '0'.toInt() && ch <= '9'.toInt() || ch == '.'.toInt()) { while (ch >= '0'.toInt() && ch <= '9'.toInt() || ch == '.'.toInt() || ch == 'E'.toInt()) nextChar(); x = expr.substring(startPos, pos).toDouble() } 
@@ -253,7 +239,6 @@ class MainActivity : Activity() {
     private fun onEquationButtonClick(s: String) {
         if (justCalculated && s !in listOf("÷", "×", "−", "+", "^", "%")) { currentInput = ""; justCalculated = false }
         justCalculated = false
-
         when (s) {
             "MC" -> { memoryValue = 0.0; savePreferences() }
             "MR" -> { currentInput += formatResult(memoryValue) }
@@ -268,13 +253,8 @@ class MainActivity : Activity() {
             "x^y" -> { currentInput += "^" }
             "=" -> { 
                 if (currentInput.isNotEmpty()) {
-                    try {
-                        val res = evalMathExpression(currentInput)
-                        val formatted = formatResult(res)
-                        expressionView?.text = "$currentInput ="
-                        historyList.add(0, "$currentInput = $formatted"); savePreferences()
-                        currentInput = formatted; justCalculated = true
-                    } catch (e: Exception) { currentInput = "Error"; justCalculated = true }
+                    try { val res = evalMathExpression(currentInput); val formatted = formatResult(res); expressionView?.text = "$currentInput ="; historyList.add(0, "$currentInput = $formatted"); savePreferences(); currentInput = formatted; justCalculated = true } 
+                    catch (e: Exception) { currentInput = "Error"; justCalculated = true }
                 }
             }
             else -> currentInput += s
@@ -283,9 +263,7 @@ class MainActivity : Activity() {
         currentView?.text = if(currentInput.isEmpty()) "0" else currentInput
     }
 
-    private fun formatResult(res: Double): String {
-        return try { if (res.isNaN() || res.isInfinite()) "Error" else BigDecimal.valueOf(res).setScale(calcPrecision, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() } catch (e: Exception) { "Error" }
-    }
+    private fun formatResult(res: Double): String { return try { if (res.isNaN() || res.isInfinite()) "Error" else BigDecimal.valueOf(res).setScale(calcPrecision, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() } catch (e: Exception) { "Error" } }
         private fun createInputBox(hintText: String): EditText {
         return EditText(this).apply {
             hint = hintText; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE)
@@ -350,8 +328,7 @@ class MainActivity : Activity() {
         val btn = createActionBtn("המר בסיסי ספירה") { val n = numInput.text.toString().toLongOrNull(); if (n != null) res.text = "בינארי (BIN):\n${java.lang.Long.toBinaryString(n)}\n\nהקסדצימלי (HEX):\n${java.lang.Long.toHexString(n).uppercase()}" else res.text = "נא להזין מספר שלם." }
         root.addView(numInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
-
-    private fun createPercentageCalculator(): View {
+        private fun createPercentageCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val pctInput = createInputBox("אחוז (למשל 15)"); val totalInput = createInputBox("מתוך סכום (למשל 200)"); val res = createResultTextView()
         val btn = createActionBtn("חשב אחוז") { val pct = pctInput.text.toString().toDoubleOrNull(); val total = totalInput.text.toString().toDoubleOrNull(); if (pct != null && total != null) res.text = "$pct% מתוך $total הם:\n\n${formatCurrency(total * (pct / 100.0))}" }
@@ -367,7 +344,7 @@ class MainActivity : Activity() {
 
     private fun createTipCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
-        val billIn = createInputBox("סכום החשבון (₪)"); val tipIn = createInputBox("אחוז טיפ"); val pplIn = createInputBox("מספר סועדים"); val res = createResultTextView()
+        val billIn = createInputBox("סכום החשבון (₪)"); val tipIn = createInputBox("אחוז טיפ (ברירת מחדל 10%)"); val pplIn = createInputBox("מספר סועדים (ברירת מחדל 1)"); val res = createResultTextView()
         val btn = createActionBtn("חשב טיפ") { val b = billIn.text.toString().toDoubleOrNull(); val t = tipIn.text.toString().toDoubleOrNull() ?: 10.0; val p = pplIn.text.toString().toIntOrNull() ?: 1; if (b != null && p > 0) { val tip = b * (t / 100); val tot = b + tip; res.text = "טיפ: ₪${formatCurrency(tip)}\nסה״כ: ₪${formatCurrency(tot)}\nלכל סועד: ₪${formatCurrency(tot / p)}" } }
         root.addView(billIn); root.addView(tipIn); root.addView(pplIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
@@ -385,6 +362,32 @@ class MainActivity : Activity() {
         val btn = createActionBtn("בחר תאריך לידה 📅") { val c = Calendar.getInstance(); DatePickerDialog(this, { _, y, m, d -> val t = Calendar.getInstance(); var ay = t.get(Calendar.YEAR) - y; var am = t.get(Calendar.MONTH) - m; var ad = t.get(Calendar.DAY_OF_MONTH) - d; if (ad < 0) { am--; ad += t.getActualMaximum(Calendar.DAY_OF_MONTH) }; if (am < 0) { ay--; am += 12 }; res.text = if (ay < 0) "תאריך עתידי!" else "הגיל שלך:\n$ay שנים, $am חודשים ו-$ad ימים" }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show() }
         root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
+
+    private fun createBmrCalculator(): View {
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+        val wIn = createInputBox("משקל (ק״ג)"); val hIn = createInputBox("גובה (ס״מ)"); val aIn = createInputBox("גיל (שנים)"); val res = createResultTextView()
+        val btnMale = createActionBtn("חשב עבור גבר 👨", true) { val w=wIn.text.toString().toDoubleOrNull(); val h=hIn.text.toString().toDoubleOrNull(); val a=aIn.text.toString().toDoubleOrNull(); if(w!=null&&h!=null&&a!=null) { val bmr=10*w + 6.25*h - 5*a + 5; res.text="BMR (בסיסי): ${formatCurrency(bmr)} קלוריות\nפעילות קלה: ${formatCurrency(bmr*1.2)}\nפעילות רבה: ${formatCurrency(bmr*1.55)}" } else res.text="נא להזין נתונים תקינים." }
+        val btnFemale = createActionBtn("חשב עבור אישה 👩", false) { val w=wIn.text.toString().toDoubleOrNull(); val h=hIn.text.toString().toDoubleOrNull(); val a=aIn.text.toString().toDoubleOrNull(); if(w!=null&&h!=null&&a!=null) { val bmr=10*w + 6.25*h - 5*a - 161; res.text="BMR (בסיסי): ${formatCurrency(bmr)} קלוריות\nפעילות קלה: ${formatCurrency(bmr*1.2)}\nפעילות רבה: ${formatCurrency(bmr*1.55)}" } else res.text="נא להזין נתונים תקינים." }
+        root.addView(wIn); root.addView(hIn); root.addView(aIn); root.addView(btnMale); root.addView(btnFemale); root.addView(res); scroll.addView(root); return scroll
+    }
+
+    private fun createQuadraticCalculator(): View {
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+        val aIn = createInputBox("מקדם A (לדוגמה 1)"); val bIn = createInputBox("מקדם B (לדוגמה -5)"); val cIn = createInputBox("מקדם C (לדוגמה 6)"); val res = createResultTextView()
+        val btn = createActionBtn("פתור משוואה ריבועית") { val a=aIn.text.toString().toDoubleOrNull(); val b=bIn.text.toString().toDoubleOrNull(); val c=cIn.text.toString().toDoubleOrNull(); if(a!=null&&b!=null&&c!=null) { if(a==0.0) { res.text="משוואה ממעלה ראשונה (A לא יכול להיות 0)." } else { val delta=b*b - 4*a*c; if(delta>0) { val x1=(-b+Math.sqrt(delta))/(2*a); val x2=(-b-Math.sqrt(delta))/(2*a); res.text="שני פתרונות:\nX1 = ${formatCurrency(x1)}\nX2 = ${formatCurrency(x2)}" } else if(delta==0.0) { val x=-b/(2*a); res.text="פתרון יחיד:\nX = ${formatCurrency(x)}" } else { res.text="אין פתרונות ממשיים (Δ < 0)" } } } else res.text="נא להזין נתונים תקינים." }
+        root.addView(aIn); root.addView(bIn); root.addView(cIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
+    }
+
+    private fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
+
+    private fun createFractionCalculator(): View {
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+        val n1 = createInputBox("מונה שבר ראשון"); val d1 = createInputBox("מכנה שבר ראשון"); val n2 = createInputBox("מונה שבר שני"); val d2 = createInputBox("מכנה שבר שני"); val res = createResultTextView()
+        fun calc(op: String) { val num1=n1.text.toString().toLongOrNull(); val den1=d1.text.toString().toLongOrNull(); val num2=n2.text.toString().toLongOrNull(); val den2=d2.text.toString().toLongOrNull(); if(num1!=null&&den1!=null&&den1!=0L&&num2!=null&&den2!=null&&den2!=0L) { var rNum=0L; var rDen=1L; when(op){ "+"->{rNum=num1*den2+num2*den1; rDen=den1*den2}; "-"->{rNum=num1*den2-num2*den1; rDen=den1*den2}; "*"->{rNum=num1*num2; rDen=den1*den2}; "/"->{rNum=num1*den2; rDen=den1*num2} }; if(rDen==0L) { res.text="חלוקה באפס!"; return }; val g=Math.abs(gcd(rNum, rDen)); rNum/=g; rDen/=g; if(rDen<0) { rNum=-rNum; rDen=-rDen }; res.text=if(rDen==1L) "תוצאה מצומצמת: $rNum" else "תוצאה מצומצמת: $rNum / $rDen" } else res.text="נתונים לא תקינים (המכנה לא יכול להיות 0)" }
+        val btnAdd = createActionBtn("חיבור שברים (+)", true) { calc("+") }; val btnSub = createActionBtn("חיסור שברים (-)", false) { calc("-") }
+        val btnMul = createActionBtn("כפל שברים (×)", true) { calc("*") }; val btnDiv = createActionBtn("חילוק שברים (÷)", false) { calc("/") }
+        root.addView(n1); root.addView(d1); root.addView(n2); root.addView(d2); root.addView(btnAdd); root.addView(btnSub); root.addView(btnMul); root.addView(btnDiv); root.addView(res); scroll.addView(root); return scroll
+    }
         // =========================================================================
     // הגדרות וערכות נושא (Themes) מוכנות + גלגל צבעים מלא
     // =========================================================================
@@ -392,7 +395,6 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
         
-        // 1. פלטות צבעים מוכנות מראש (Themes)
         val titleThemes = TextView(this).apply { text = "🎨 ערכות נושא מוכנות (Themes)"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)) }
         val themeScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }
         val themeContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -419,7 +421,6 @@ class MainActivity : Activity() {
         }
         themeScroll.addView(themeContainer)
 
-        // 2. גלגל צבעים אינטראקטיבי בהתאמה אישית
         var editingTarget = 0 
         val targetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16f); bottomMargin = dp(14f) } }
         lateinit var btnEditPrimary: TextView; lateinit var btnEditBg: TextView; lateinit var pickerContainer: FrameLayout
@@ -439,13 +440,12 @@ class MainActivity : Activity() {
             })
         }
 
-        btnEditPrimary = TextView(this).apply { text = "🎨 בחירת צבע נושא"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
-        btnEditBg = TextView(this).apply { text = "🌌 בחירת צבע רקע"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
+        btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
+        btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
         targetRow.addView(btnEditPrimary); targetRow.addView(btnEditBg)
         pickerContainer = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(18f) } }
         loadColorPicker()
 
-        // 3. הגדרות מערכת מתקדמות
         val titleSettings = TextView(this).apply { text = "הגדרות מערכת נוספות"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8f), 0, dp(10f)) }
         val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
         val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
