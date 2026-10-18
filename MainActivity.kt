@@ -8,8 +8,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
-import android.graphics.Color
-import android.graphics.Typeface
+import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
@@ -26,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import java.math.BigDecimal
@@ -44,12 +44,11 @@ class MainActivity : Activity() {
     private lateinit var settingsBtn: TextView
     private lateinit var historyBtn: TextView
 
-    // הגדרות שנשמרות בזיכרון המכשיר
     private var useHaptic = true
     private var useSound = true
     private var keepScreenOn = false
     private var calcPrecision = 8
-    private var buttonCornerStyle = 24f // 8=מרובע, 24=מודרני, 40=עגול
+    private var buttonCornerStyle = 24f
     private var primaryColor = Color.parseColor("#64B5F6")
     private var bgColor = Color.parseColor("#08090C")
     private var memoryValue = 0.0
@@ -546,36 +545,87 @@ class MainActivity : Activity() {
         }
         root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
-
-    private fun createSettingsPage(): View {
-        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(20f)) }
-        val titleColor = TextView(this).apply { text = "🎨 צבע נושא כללי (נשמר אוטומטית)"; setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(10f), 0, dp(10f)) }
-        val colorScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12f) } }
-        val colorContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        for (hue in 0..350 step 15) {
-            val c = Color.HSVToColor(floatArrayOf(hue.toFloat(), 0.7f, 0.95f))
-            val circle = View(this).apply {
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(c); if (c == primaryColor) setStroke(dp(3f), Color.WHITE) }
-                layoutParams = LinearLayout.LayoutParams(dp(50f), dp(50f)).apply { setMargins(dp(5f), dp(5f), dp(5f), dp(5f)) }
-                setOnClickListener { feedback(it); primaryColor = c; savePreferences(); applyTheme() }
-            }
-            colorContainer.addView(circle)
+        private fun createSettingsPage(): View {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20f), dp(0f), dp(20f), dp(24f))
         }
-        colorScroll.addView(colorContainer)
 
-        val titleBg = TextView(this).apply { text = "🌌 צבע רקע לאפליקציה"; setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(10f), 0, dp(10f)) }
-        val bgScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }
-        val bgContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        for (hex in listOf("#08090C", "#121212", "#0F172A", "#1C1917", "#311025", "#064E3B", "#172554", "#2E1065")) {
-            val c = Color.parseColor(hex)
-            val circle = View(this).apply {
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(c); setStroke(dp(1.5f), Color.parseColor("#444444")); if (c == bgColor) setStroke(dp(3f), Color.WHITE) }
-                layoutParams = LinearLayout.LayoutParams(dp(50f), dp(50f)).apply { setMargins(dp(5f), dp(5f), dp(5f), dp(5f)) }
-                setOnClickListener { feedback(it); bgColor = c; savePreferences(); applyTheme() }
+        var editingTarget = 0 // 0 = צבע נושא, 1 = צבע רקע
+
+        val targetRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(8f); bottomMargin = dp(14f)
             }
-            bgContainer.addView(circle)
         }
-        bgScroll.addView(bgContainer)
+
+        lateinit var btnEditPrimary: TextView
+        lateinit var btnEditBg: TextView
+        lateinit var pickerContainer: FrameLayout
+
+        fun refreshTargetButtons() {
+            btnEditPrimary.background = GradientDrawable().apply {
+                setColor(if (editingTarget == 0) primaryColor else getCardColor())
+                cornerRadius = dp(14f).toFloat()
+                setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else getStrokeColor())
+            }
+            btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE)
+
+            btnEditBg.background = GradientDrawable().apply {
+                setColor(if (editingTarget == 1) primaryColor else getCardColor())
+                cornerRadius = dp(14f).toFloat()
+                setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else getStrokeColor())
+            }
+            btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE)
+        }
+
+        fun loadColorPicker() {
+            refreshTargetButtons()
+            pickerContainer.removeAllViews()
+            val initialColor = if (editingTarget == 0) primaryColor else bgColor
+            pickerContainer.addView(createFullColorWheelPicker(initialColor) { newColor ->
+                if (editingTarget == 0) primaryColor = newColor else bgColor = newColor
+                savePreferences()
+                window.statusBarColor = bgColor
+                window.navigationBarColor = bgColor
+                rootLayout.setBackgroundColor(bgColor)
+                updateTabColors()
+                refreshTargetButtons()
+            })
+        }
+
+        btnEditPrimary = TextView(this).apply {
+            text = "🎨 ערוך צבע נושא"
+            gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(12f), 0, dp(12f))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }
+            setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() }
+        }
+
+        btnEditBg = TextView(this).apply {
+            text = "🌌 ערוך צבע רקע"
+            gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(12f), 0, dp(12f))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }
+            setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() }
+        }
+
+        targetRow.addView(btnEditPrimary)
+        targetRow.addView(btnEditBg)
+
+        pickerContainer = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(18f) }
+        }
+
+        loadColorPicker()
+
+        val titleSettings = TextView(this).apply {
+            text = "הגדרות מערכת נוספות"
+            setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(8f), 0, dp(10f))
+        }
 
         val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
         val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
@@ -583,11 +633,171 @@ class MainActivity : Activity() {
         val shapeName = when(buttonCornerStyle) { 8f -> "מרובעים ⏹️"; 24f -> "מודרניים 🔲"; else -> "עגולים ⚪" }
         val shapeBtn = createActionBtn("צורת כפתורים: $shapeName", false) { buttonCornerStyle = when(buttonCornerStyle) { 8f -> 24f; 24f -> 42f; else -> 8f }; savePreferences(); applyTheme() }
         val precBtn = createActionBtn("דיוק עשרוני: $calcPrecision ספרות ⚙️", false) { calcPrecision = if (calcPrecision >= 10) 2 else calcPrecision + 2; savePreferences(); applyTheme() }
-        val backBtn = createActionBtn("חזור למחשבון 🔙", true) { switchTab(0) }
+        val backBtn = createActionBtn("שמור וחזור למחשבון 🔙", true) { switchTab(0) }
 
-        root.addView(titleColor); root.addView(colorScroll); root.addView(titleBg); root.addView(bgScroll)
+        root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings)
         root.addView(vibBtn); root.addView(sndBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); root.addView(backBtn)
-        scroll.addView(root); return scroll
+        scroll.addView(root)
+        return scroll
+    }
+
+    private fun createFullColorWheelPicker(initialColor: Int, onColorChanged: (Int) -> Unit): View {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(initialColor, hsv)
+        var currentAlpha = Color.alpha(initialColor)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(16f), dp(16f), dp(16f), dp(16f))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#141821"))
+                cornerRadius = dp(24f).toFloat()
+                setStroke(dp(1.5f), Color.parseColor("#2A3142"))
+            }
+        }
+
+        val previewRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12f) }
+        }
+
+        val previewCircle = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(44f), dp(44f)).apply { leftMargin = dp(12f) }
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(initialColor); setStroke(dp(2f), Color.WHITE) }
+        }
+
+        val hexLabel = TextView(this).apply {
+            text = String.format("צבע נבחר: #%08X", initialColor)
+            setTextColor(Color.WHITE); textSize = 15f; typeface = Typeface.MONOSPACE
+        }
+
+        previewRow.addView(previewCircle); previewRow.addView(hexLabel)
+        lateinit var wheelView: ColorWheelView
+
+        fun notifyColorUpdate() {
+            val finalColor = Color.HSVToColor(currentAlpha, hsv)
+            (previewCircle.background as GradientDrawable).setColor(finalColor)
+            hexLabel.text = String.format("צבע נבחר: #%08X", finalColor)
+            wheelView.updateHSV(hsv[0], hsv[1], hsv[2])
+            onColorChanged(finalColor)
+        }
+
+        wheelView = ColorWheelView(this, hsv[0], hsv[1], hsv[2]) { h, s ->
+            hsv[0] = h; hsv[1] = s; notifyColorUpdate()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(dp(220f), dp(220f)).apply { bottomMargin = dp(14f) }
+        }
+
+        val brightnessLabel = TextView(this).apply {
+            text = "☀️ בהירות (Brightness): ${(hsv[2] * 100).toInt()}%"
+            setTextColor(Color.WHITE); textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val brightnessSeek = SeekBar(this).apply {
+            max = 100; progress = (hsv[2] * 100).toInt()
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12f) }
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    hsv[2] = progress.coerceAtLeast(5) / 100f
+                    brightnessLabel.text = "☀️ בהירות (Brightness): $progress%"
+                    if (fromUser) notifyColorUpdate()
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+
+        val alphaLabel = TextView(this).apply {
+            text = "💧 אטימות / שקיפות (Alpha): ${(currentAlpha * 100 / 255)}%"
+            setTextColor(Color.WHITE); textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val alphaSeek = SeekBar(this).apply {
+            max = 255; progress = currentAlpha
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    currentAlpha = progress.coerceAtLeast(35)
+                    alphaLabel.text = "💧 אטימות / שקיפות (Alpha): ${(currentAlpha * 100 / 255)}%"
+                    if (fromUser) notifyColorUpdate()
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+
+        card.addView(previewRow); card.addView(wheelView)
+        card.addView(brightnessLabel); card.addView(brightnessSeek)
+        card.addView(alphaLabel); card.addView(alphaSeek)
+        return card
+    }
+
+    inner class ColorWheelView(
+        context: Context,
+        private var hue: Float,
+        private var sat: Float,
+        private var value: Float,
+        private val onHueSatChanged: (Float, Float) -> Unit
+    ) : View(context) {
+
+        private val wheelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val selectorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = dp(3f).toFloat(); color = Color.WHITE
+        }
+        private val selectorFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        private var centerX = 0f; private var centerY = 0f; private var radius = 0f
+
+        fun updateHSV(h: Float, s: Float, v: Float) { hue = h; sat = s; value = v; invalidate() }
+
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            super.onSizeChanged(w, h, oldw, oldh)
+            centerX = w / 2f; centerY = h / 2f
+            radius = (Math.min(w, h) / 2f) - dp(8f)
+            val colors = intArrayOf(Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED)
+            val sweepShader = SweepGradient(centerX, centerY, colors, null)
+            val radialShader = RadialGradient(centerX, centerY, radius, Color.WHITE, 0x00FFFFFF, Shader.TileMode.CLAMP)
+            wheelPaint.shader = ComposeShader(sweepShader, radialShader, PorterDuff.Mode.SRC_OVER)
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            canvas.drawCircle(centerX, centerY, radius, wheelPaint)
+            val darkness = ((1f - value) * 255).toInt().coerceIn(0, 255)
+            dimPaint.color = Color.argb(darkness, 0, 0, 0)
+            canvas.drawCircle(centerX, centerY, radius, dimPaint)
+
+            val angleRad = Math.toRadians(hue.toDouble())
+            val dist = sat * radius
+            val selX = (centerX + dist * Math.cos(angleRad)).toFloat()
+            val selY = (centerY + dist * Math.sin(angleRad)).toFloat()
+
+            selectorFillPaint.color = Color.HSVToColor(floatArrayOf(hue, sat, value))
+            canvas.drawCircle(selX, selY, dp(11f).toFloat(), selectorFillPaint)
+            canvas.drawCircle(selX, selY, dp(11f).toFloat(), selectorPaint)
+        }
+
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    val dx = event.x - centerX; val dy = event.y - centerY
+                    val d = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+                    sat = (d / radius).coerceIn(0f, 1f)
+                    var angle = Math.toDegrees(Math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                    if (angle < 0f) angle += 360f
+                    hue = angle
+                    onHueSatChanged(hue, sat)
+                    invalidate()
+                    return true
+                }
+            }
+            return super.onTouchEvent(event)
+        }
     }
 
     private fun formatCurrency(value: Double): String = BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
