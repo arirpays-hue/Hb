@@ -31,8 +31,11 @@ jobs:
           mkdir -p app/src/main/res/mipmap-anydpi-v26
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/raw
 
           cp *.kt app/src/main/java/com/example/calculator/
+
+          wget -qO app/src/main/res/raw/cheer.mp3 "https://www.myinstants.com/media/sounds/kids_cheering.mp3" || true
 
           cat << 'EOF' > app/src/main/res/drawable/ic_calc_tile.xml
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
@@ -156,6 +159,28 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+                  
+                  <receiver android:name=".CalculatorWidget" android:exported="true">
+                      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+                      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
+                  </receiver>
+                  
+                  <service android:name=".MiniCalcTileService" android:icon="@drawable/ic_calc_tile" android:label="מיני מחשבון" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE" android:exported="true">
+                      <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+      - name: Build Signed Native APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload Ready APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Calculator-Pro-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
                   
                   <receiver android:name=".CalculatorWidget" android:exported="true">
                       <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
