@@ -1,7 +1,5 @@
 package com.example.calculator
 
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -9,15 +7,13 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
-import android.transition.AutoTransition
-import android.transition.TransitionManager
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -27,151 +23,148 @@ import java.math.RoundingMode
 
 class MainActivity : Activity() {
 
+    private lateinit var contentFrame: FrameLayout
+    private lateinit var tabBasic: TextView
+    private lateinit var tabTip: TextView
+    private lateinit var tabBMI: TextView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.statusBarColor = Color.parseColor("#0D0F14")
+        window.navigationBarColor = Color.parseColor("#0D0F14")
+
+        // המסך הראשי
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#0D0F14"))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL // כיוון ימין-לשמאל כללי
+        }
+
+        // --- יצירת סרגל הלשוניות (Tabs) העליון ---
+        val tabBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8f), dp(16f), dp(8f), dp(16f))
+            background = GradientDrawable().apply { setColor(Color.parseColor("#12151D")) }
+        }
+
+        tabBasic = createTab("🧮 רגיל") { switchTab(0) }
+        tabTip = createTab("💰 טיפים") { switchTab(1) }
+        tabBMI = createTab("⚖️ BMI") { switchTab(2) }
+
+        val tabParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(dp(4f), 0, dp(4f), 0)
+        }
+
+        tabBar.addView(tabBasic, tabParams)
+        tabBar.addView(tabTip, tabParams)
+        tabBar.addView(tabBMI, tabParams)
+
+        // אזור התוכן המשתנה שבו יוצגו המחשבונים
+        contentFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+
+        root.addView(tabBar)
+        root.addView(contentFrame)
+
+        setContentView(root)
+        
+        // מפעיל את המחשבון הרגיל כברירת מחדל
+        switchTab(0)
+    }
+
+    private fun createTab(text: String, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            this.text = text
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(12f), 0, dp(12f))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(24f).toFloat()
+            }
+            setOnClickListener {
+                it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                onClick()
+            }
+        }
+    }
+
+    private fun switchTab(index: Int) {
+        val activeBg = Color.parseColor("#64B5F6")
+        val inactiveBg = Color.parseColor("#1E2433")
+        
+        (tabBasic.background as GradientDrawable).setColor(if (index == 0) activeBg else inactiveBg)
+        (tabTip.background as GradientDrawable).setColor(if (index == 1) activeBg else inactiveBg)
+        (tabBMI.background as GradientDrawable).setColor(if (index == 2) activeBg else inactiveBg)
+        
+        tabBasic.setTextColor(if (index == 0) Color.BLACK else Color.parseColor("#8A94A8"))
+        tabTip.setTextColor(if (index == 1) Color.BLACK else Color.parseColor("#8A94A8"))
+        tabBMI.setTextColor(if (index == 2) Color.BLACK else Color.parseColor("#8A94A8"))
+
+        contentFrame.removeAllViews()
+        when (index) {
+            0 -> contentFrame.addView(createBasicCalculator())
+            1 -> contentFrame.addView(createTipCalculator())
+            2 -> contentFrame.addView(createBMICalculator())
+        }
+    }
+
+    // ==========================================
+    // 1. מחשבון רגיל (מעוצב רספונסיבית לכל מסך)
+    // ==========================================
     private var currentInput = "0"
     private var previousInput = ""
     private var operator: String? = null
     private var justCalculated = false
-    private var showHistory = false
-    private val historyList = mutableListOf<Pair<String, String>>()
-
     private lateinit var expressionView: TextView
     private lateinit var currentView: TextView
-    private lateinit var historyToggleBtn: TextView
-    private lateinit var clearHistoryBtn: TextView
-    private lateinit var historyScroll: ScrollView
-    private lateinit var historyContainer: LinearLayout
-    private lateinit var displayCard: LinearLayout
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        window.statusBarColor = Color.parseColor("#0D0F14")
-        window.navigationBarColor = Color.parseColor("#0D0F14")
-
+    private fun createBasicCalculator(): View {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#0D0F14"))
-            layoutDirection = View.LAYOUT_DIRECTION_LTR
-            val pad = dp(14f)
-            setPadding(pad, pad, pad, pad)
+            layoutDirection = View.LAYOUT_DIRECTION_LTR // המחשבון משמאל לימין כדי שהמספרים לא יתהפכו
+            setPadding(dp(12f), dp(0f), dp(12f), dp(12f))
         }
 
-        // --- כרטיס תצוגה עליון (35% מגובה המסך) ---
-        displayCard = LinearLayout(this).apply {
+        // אזור התצוגה העליון (35% מהמסך)
+        val displayCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(Color.parseColor("#181C26"), Color.parseColor("#1E2433"))
-            ).apply {
-                cornerRadius = dp(28f).toFloat()
-            }
-            val pad = dp(16f)
-            setPadding(pad, pad, pad, pad)
+            ).apply { cornerRadius = dp(28f).toFloat() }
+            setPadding(dp(20f), dp(20f), dp(20f), dp(20f))
+            gravity = Gravity.BOTTOM or Gravity.END
         }
 
-        // שורה עליונה - כפתור היסטוריה
-        val topBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
-        historyToggleBtn = TextView(this).apply {
-            text = "🕒 היסטוריה (0)"
-            setTextColor(Color.parseColor("#B0B8C8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#262C3D"))
-                cornerRadius = dp(50f).toFloat()
-            }
-            setPadding(dp(14f), dp(6f), dp(14f), dp(6f))
-            setOnClickListener {
-                it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                toggleHistory()
-            }
-        }
-
-        val topSpacer = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-        }
-
-        clearHistoryBtn = TextView(this).apply {
-            text = "נקה הכל"
-            setTextColor(Color.parseColor("#FF6B6B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            visibility = View.GONE
-            setPadding(dp(8f), dp(4f), dp(8f), dp(4f))
-            setOnClickListener {
-                it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                historyList.clear()
-                refreshHistoryUI()
-            }
-        }
-
-        topBar.addView(historyToggleBtn)
-        topBar.addView(topSpacer)
-        topBar.addView(clearHistoryBtn)
-        displayCard.addView(topBar)
-
-        // חלל גמיש באמצע הכרטיס (מכיל את ההיסטוריה כשפותחים אותה)
-        val middleBox = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        }
-
-        historyScroll = ScrollView(this).apply {
-            visibility = View.GONE
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ).apply {
-                topMargin = dp(8f)
-                bottomMargin = dp(4f)
-            }
-        }
-
-        historyContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        historyScroll.addView(historyContainer)
-        middleBox.addView(historyScroll)
-        displayCard.addView(middleBox)
-
-        // אזור המספרים והתוצאה - תמיד מיושר לתחתית הכרטיס
         expressionView = TextView(this).apply {
-            text = ""
+            text = if (operator != null) "$previousInput $operator" else ""
             setTextColor(Color.parseColor("#8A94A8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            setAutoSizeTextTypeUniformWithConfiguration(14, 24, 2, TypedValue.COMPLEX_UNIT_SP)
             gravity = Gravity.END
-            setSingleLine(true)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
 
         currentView = TextView(this).apply {
-            text = "0"
+            text = currentInput
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f)
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            // טקסט דינמי - קטן כשמקלידים המון מספרים כדי למנוע חיתוך!
+            setAutoSizeTextTypeUniformWithConfiguration(20, 60, 2, TypedValue.COMPLEX_UNIT_SP)
             gravity = Gravity.END
-            setSingleLine(true)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f)
         }
 
         displayCard.addView(expressionView)
         displayCard.addView(currentView)
+        
+        // שימוש במשקל (Weight) כדי להתאים אוטומטית לכל טלפון
+        root.addView(displayCard, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.35f).apply { bottomMargin = dp(12f) })
 
-        root.addView(
-            displayCard,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.35f).apply {
-                bottomMargin = dp(12f)
-            }
-        )
-
-        // --- לוח מקשים (65% מגובה המסך, מחולק שווה בשווה ל-5 שורות) ---
-        val keypad = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
+        // לוח המקשים (65% מהמסך)
+        val keypad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val rows = listOf(
             listOf("AC", "⌫", "%", "÷"),
             listOf("7", "8", "9", "×"),
@@ -181,29 +174,20 @@ class MainActivity : Activity() {
         )
 
         for (rowSymbols in rows) {
-            val rowLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
+            val rowLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             for (symbol in rowSymbols) {
                 val btn = createAnimatedButton(symbol)
-                val lp = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                // התאמת הכפתורים בגודל שווה שמתמתח על כל המסך
+                rowLayout.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
                     val m = dp(5f)
                     setMargins(m, m, m, m)
-                }
-                rowLayout.addView(btn, lp)
+                })
             }
-            keypad.addView(
-                rowLayout,
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-            )
+            keypad.addView(rowLayout, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
 
-        root.addView(
-            keypad,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f)
-        )
-
-        setContentView(root)
+        root.addView(keypad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 0.65f))
+        return root
     }
 
     private fun createAnimatedButton(symbol: String): TextView {
@@ -223,68 +207,30 @@ class MainActivity : Activity() {
             else -> Color.WHITE
         }
 
-        val normalRadius = dp(36f).toFloat()
-        val pressedRadius = dp(14f).toFloat()
-
         val shapeDrawable = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            cornerRadius = normalRadius
+            cornerRadius = dp(24f).toFloat()
             setColor(defaultBgColor)
         }
-
-        val rippleColor = ColorStateList.valueOf(Color.parseColor("#33FFFFFF"))
-        val rippleDrawable = RippleDrawable(rippleColor, shapeDrawable, null)
 
         return TextView(this).apply {
             text = symbol
             setTextColor(textColor)
-            setTextSize(
-                TypedValue.COMPLEX_UNIT_SP,
-                if (symbol in listOf("÷", "×", "−", "+", "=")) 28f else 24f
-            )
-            typeface = if (symbol == "=") {
-                Typeface.DEFAULT_BOLD
-            } else {
-                Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            }
+            setAutoSizeTextTypeUniformWithConfiguration(16, 32, 2, TypedValue.COMPLEX_UNIT_SP)
+            typeface = if (symbol == "=") Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
-            background = rippleDrawable
+            background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shapeDrawable, null)
             isClickable = true
 
             setOnTouchListener { v, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        v.animate()
-                            .scaleX(0.88f)
-                            .scaleY(0.88f)
-                            .setDuration(90)
-                            .setInterpolator(DecelerateInterpolator())
-                            .start()
-
-                        ValueAnimator.ofFloat(shapeDrawable.cornerRadius, pressedRadius).apply {
-                            duration = 90
-                            addUpdateListener { shapeDrawable.cornerRadius = it.animatedValue as Float }
-                            start()
-                        }
+                        v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(100).start()
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        v.animate()
-                            .scaleX(1f)
-                            .scaleY(1f)
-                            .setDuration(240)
-                            .setInterpolator(OvershootInterpolator(2.6f))
-                            .start()
-
-                        ValueAnimator.ofFloat(shapeDrawable.cornerRadius, normalRadius).apply {
-                            duration = 200
-                            addUpdateListener { shapeDrawable.cornerRadius = it.animatedValue as Float }
-                            start()
-                        }
-
-                        if (event.actionMasked == MotionEvent.ACTION_UP) {
-                            onButtonClick(symbol)
-                        }
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
+                        if (event.actionMasked == MotionEvent.ACTION_UP) onButtonClick(symbol)
                     }
                 }
                 false
@@ -294,76 +240,32 @@ class MainActivity : Activity() {
 
     private fun onButtonClick(symbol: String) {
         when (symbol) {
-            "AC" -> {
-                currentInput = "0"
-                previousInput = ""
-                operator = null
-                justCalculated = false
-                animateDisplayChange(false)
-            }
-            "⌫" -> {
-                if (justCalculated || currentInput == "Error") {
-                    currentInput = "0"
-                    justCalculated = false
-                } else {
-                    currentInput = if (currentInput.length > 1) currentInput.dropLast(1) else "0"
-                    if (currentInput == "-") currentInput = "0"
-                }
-                updateDisplay()
-            }
-            "±" -> {
-                if (currentInput != "0" && currentInput != "Error") {
-                    currentInput = if (currentInput.startsWith("-")) {
-                        currentInput.substring(1)
-                    } else {
-                        "-$currentInput"
-                    }
-                    updateDisplay()
-                }
-            }
+            "AC" -> { currentInput = "0"; previousInput = ""; operator = null; justCalculated = false }
+            "⌫" -> { currentInput = if (currentInput.length > 1 && !justCalculated && currentInput != "Error") currentInput.dropLast(1) else "0"; if (currentInput == "-") currentInput = "0" }
+            "±" -> { if (currentInput != "0" && currentInput != "Error") currentInput = if (currentInput.startsWith("-")) currentInput.substring(1) else "-$currentInput" }
             "+", "−", "×", "÷", "%" -> {
                 if (currentInput == "Error") return
-                if (previousInput.isNotEmpty() && operator != null && !justCalculated) {
-                    calculate(animate = false)
-                }
+                if (previousInput.isNotEmpty() && operator != null && !justCalculated) calculate()
                 previousInput = currentInput
                 operator = symbol
                 justCalculated = true
-                updateDisplay()
             }
-            "=" -> {
-                if (operator != null && previousInput.isNotEmpty()) {
-                    calculate(animate = true)
-                }
-            }
-            "." -> {
-                if (justCalculated || currentInput == "Error") {
-                    currentInput = "0."
-                    justCalculated = false
-                } else if (!currentInput.contains(".")) {
-                    currentInput += "."
-                }
-                updateDisplay()
-            }
-            else -> { // ספרות 0-9
-                if (justCalculated || currentInput == "0" || currentInput == "Error") {
-                    currentInput = symbol
-                    justCalculated = false
-                } else if (currentInput.length < 12) {
-                    currentInput += symbol
-                }
-                updateDisplay()
+            "=" -> { if (operator != null && previousInput.isNotEmpty()) calculate() }
+            "." -> { if (justCalculated || currentInput == "Error") { currentInput = "0."; justCalculated = false } else if (!currentInput.contains(".")) currentInput += "." }
+            else -> {
+                if (justCalculated || currentInput == "0" || currentInput == "Error") { currentInput = symbol; justCalculated = false }
+                else if (currentInput.length < 12) currentInput += symbol
             }
         }
+        updateDisplay()
     }
 
-    private fun calculate(animate: Boolean) {
+    private fun calculate() {
         val prev = previousInput.toDoubleOrNull()
         val curr = currentInput.toDoubleOrNull()
-        val op = operator
-        if (prev == null || curr == null || op == null) return
+        if (prev == null || curr == null || operator == null) return
 
-        val res = when (op) {
+        val res = when (operator) {
             "+" -> prev + curr
             "−" -> prev - curr
             "×" -> prev * curr
@@ -372,137 +274,173 @@ class MainActivity : Activity() {
             else -> return
         }
 
-        val formatted = formatResult(res)
-        val expr = "$previousInput $op $currentInput"
-        if (formatted != "Error") {
-            historyList.add(0, expr to formatted)
-            refreshHistoryUI()
-        }
-
-        expressionView.text = "$expr ="
-        currentInput = formatted
+        currentInput = try {
+            if (res.isNaN() || res.isInfinite()) "Error" else BigDecimal.valueOf(res).setScale(8, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+        } catch (e: Exception) { "Error" }
+        
         previousInput = ""
         operator = null
         justCalculated = true
-
-        if (animate) {
-            animateDisplayChange(true)
-        } else {
-            updateDisplay()
-        }
     }
 
     private fun updateDisplay() {
-        if (operator != null) {
-            expressionView.text = "$previousInput $operator"
-        } else if (!justCalculated) {
-            expressionView.text = ""
-        }
-
+        expressionView.text = if (operator != null) "$previousInput $operator" else ""
         currentView.text = currentInput
-        val textSize = when {
-            currentInput.length > 10 -> 30f
-            currentInput.length > 7 -> 38f
-            else -> 48f
-        }
-        currentView.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
     }
 
-    private fun animateDisplayChange(isResult: Boolean) {
-        updateDisplay()
-        currentView.translationY = if (isResult) dp(18f).toFloat() else -dp(10f).toFloat()
-        currentView.alpha = 0.2f
-        currentView.animate()
-            .translationY(0f)
-            .alpha(1f)
-            .setDuration(200)
-            .setInterpolator(OvershootInterpolator(1.8f))
-            .start()
-    }
-
-    private fun toggleHistory() {
-        showHistory = !showHistory
-        TransitionManager.beginDelayedTransition(displayCard, AutoTransition().setDuration(180))
-        historyScroll.visibility = if (showHistory) View.VISIBLE else View.GONE
-        refreshHistoryUI()
-    }
-
-    private fun refreshHistoryUI() {
-        historyToggleBtn.text = if (showHistory) "✕ סגור" else "🕒 היסטוריה (${historyList.size})"
-        clearHistoryBtn.visibility = if (showHistory && historyList.isNotEmpty()) View.VISIBLE else View.GONE
-
-        historyContainer.removeAllViews()
-        if (historyList.isEmpty()) {
-            val emptyTv = TextView(this).apply {
-                text = "אין חישובים קודמים"
-                setTextColor(Color.parseColor("#6C7589"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                gravity = Gravity.CENTER
-                setPadding(0, dp(12f), 0, dp(12f))
+    // ==========================================
+    // רכיב קלט גנרי למחשבונים הנוספים
+    // ==========================================
+    private fun createInputBox(hintText: String): EditText {
+        return EditText(this).apply {
+            hint = hintText
+            setHintTextColor(Color.parseColor("#6C7589"))
+            setTextColor(Color.WHITE)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            textSize = 18f
+            setPadding(dp(20f), dp(20f), dp(20f), dp(20f))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#1E2433"))
+                cornerRadius = dp(16f).toFloat()
             }
-            historyContainer.addView(emptyTv)
-            return
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(16f)
+            }
+        }
+    }
+
+    // ==========================================
+    // 2. מחשבון טיפים
+    // ==========================================
+    private fun createTipCalculator(): View {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24f), dp(24f), dp(24f), dp(24f))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
 
-        for (item in historyList) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#141821"))
-                    cornerRadius = dp(10f).toFloat()
+        val billInput = createInputBox("סכום החשבון (₪)")
+        val tipInput = createInputBox("אחוז טיפ (%) - ברירת מחדל 10%")
+        val peopleInput = createInputBox("מספר סועדים - ברירת מחדל 1")
+        
+        val resultView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 20f
+            setLineSpacing(dp(8f).toFloat(), 1.2f)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(24f), 0, 0)
+        }
+
+        val calcBtn = TextView(this).apply {
+            text = "חשב סכום"
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#0D0F14"))
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#64B5F6"))
+                cornerRadius = dp(16f).toFloat()
+            }
+            setPadding(0, dp(16f), 0, dp(16f))
+            isClickable = true
+            
+            setOnClickListener {
+                it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                val bill = billInput.text.toString().toDoubleOrNull()
+                val tipPct = tipInput.text.toString().toDoubleOrNull() ?: 10.0
+                val people = peopleInput.text.toString().toIntOrNull() ?: 1
+
+                if (bill != null && people > 0) {
+                    val tipAmount = bill * (tipPct / 100)
+                    val total = bill + tipAmount
+                    val perPerson = total / people
+                    
+                    resultView.text = "סה״כ טיפ: ${formatCurrency(tipAmount)} ₪\nסה״כ לתשלום: ${formatCurrency(total)} ₪\n\nלתשלום לכל סועד:\n${formatCurrency(perPerson)} ₪"
+                } else {
+                    resultView.text = "נא להזין סכום חשבון תקין."
                 }
-                setPadding(dp(12f), dp(6f), dp(12f), dp(6f))
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = dp(6f) }
-
-                setOnClickListener {
-                    it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    currentInput = item.second
-                    justCalculated = true
-                    toggleHistory()
-                    animateDisplayChange(true)
-                }
             }
-
-            val exprTv = TextView(this).apply {
-                text = item.first
-                setTextColor(Color.parseColor("#9EA7B8"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-
-            val resTv = TextView(this).apply {
-                text = "= ${item.second}"
-                setTextColor(Color.parseColor("#00E676"))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                typeface = Typeface.DEFAULT_BOLD
-            }
-
-            row.addView(exprTv)
-            row.addView(resTv)
-            historyContainer.addView(row)
         }
+
+        root.addView(billInput)
+        root.addView(tipInput)
+        root.addView(peopleInput)
+        root.addView(calcBtn)
+        root.addView(resultView)
+        scroll.addView(root)
+        return scroll
     }
 
-    private fun formatResult(value: Double): String {
-        if (value.isNaN() || value.isInfinite()) return "Error"
-        return try {
-            BigDecimal.valueOf(value)
-                .setScale(8, RoundingMode.HALF_UP)
-                .stripTrailingZeros()
-                .toPlainString()
-        } catch (e: Exception) {
-            "Error"
+    private fun formatCurrency(value: Double): String {
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).toPlainString()
+    }
+
+    // ==========================================
+    // 3. מחשבון BMI
+    // ==========================================
+    private fun createBMICalculator(): View {
+        val scroll = ScrollView(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24f), dp(24f), dp(24f), dp(24f))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
+
+        val weightInput = createInputBox("משקל (ק״ג) - למשל 70")
+        val heightInput = createInputBox("גובה (ס״מ) - למשל 175")
+        
+        val resultView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 22f
+            setLineSpacing(dp(6f).toFloat(), 1.1f)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(24f), 0, 0)
+        }
+
+        val calcBtn = TextView(this).apply {
+            text = "חשב מדד BMI"
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#0D0F14"))
+            textSize = 20f
+            typeface = Typeface.DEFAULT_BOLD
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#00E676"))
+                cornerRadius = dp(16f).toFloat()
+            }
+            setPadding(0, dp(16f), 0, dp(16f))
+            isClickable = true
+            
+            setOnClickListener {
+                it.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                val w = weightInput.text.toString().toDoubleOrNull()
+                val hCm = heightInput.text.toString().toDoubleOrNull()
+                
+                if (w != null && hCm != null && hCm > 0) {
+                    val hM = hCm / 100
+                    val bmi = w / (hM * hM)
+                    val status = when {
+                        bmi < 18.5 -> "תת משקל 🔹"
+                        bmi < 25 -> "משקל תקין ✅"
+                        bmi < 30 -> "עודף משקל 🔸"
+                        else -> "השמנת יתר ⚠️"
+                    }
+                    resultView.text = String.format("ה-BMI שלך: %.1f\n%s", bmi, status)
+                } else {
+                    resultView.text = "נא להזין נתונים תקינים."
+                }
+            }
+        }
+
+        root.addView(weightInput)
+        root.addView(heightInput)
+        root.addView(calcBtn)
+        root.addView(resultView)
+        scroll.addView(root)
+        return scroll
     }
 
     private fun dp(value: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value,
-            resources.displayMetrics
-        ).toInt()
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics).toInt()
     }
 }
