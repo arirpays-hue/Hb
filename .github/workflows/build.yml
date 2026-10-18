@@ -32,7 +32,8 @@ jobs:
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/xml
 
-          cp MainActivity.kt app/src/main/java/com/example/calculator/MainActivity.kt
+          cp *.kt app/src/main/java/com/example/calculator/
+
 
           cat << 'EOF' > app/src/main/res/xml/widget_info.xml
           <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
