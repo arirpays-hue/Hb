@@ -18,7 +18,9 @@ import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -52,6 +54,13 @@ class MainActivity : Activity() {
     private var primaryColor = Color.parseColor("#64B5F6"); private var bgColor = Color.parseColor("#08090C")
     private var memoryValue = 0.0; private var currentTabIndex = 0
     private val historyList = mutableListOf<String>(); private var isDrawerOpen = false
+    
+    // הגדרות למחשבון המטבעות
+    private var fromCurrency = "ILS"
+    private var toCurrency = "USD"
+    private val allCurrencies = listOf(
+        "ILS - שקל ישראלי", "USD - דולר אמריקאי", "EUR - אירו", "GBP - לירה שטרלינג", "JPY - ין יפני", "CHF - פרנק שוויצרי", "CAD - דולר קנדי", "AUD - דולר אוסטרלי", "CNY - יואן סיני", "RUB - רובל רוסי", "INR - רופי הודי", "BRL - ריאל ברזילאי", "ZAR - ראנד דרום אפריקאי", "TRY - לירה טורקית", "MXN - פסו מקסיקני", "SGD - דולר סינגפורי", "NZD - דולר ניו זילנדי", "HKD - דולר הונג קונג", "SEK - כתר שוודי", "KRW - וון דרום קוריאני", "NOK - כתר נורווגי", "DKK - כתר דני", "PLN - זלוטי פולני", "THB - באט תאילנדי", "IDR - רופיה אינדונזית", "HUF - פורינט הונגרי", "CZK - קורונה צ'כית", "AED - דירהם איחוד האמירויות", "SAR - ריאל סעודי", "EGP - לירה מצרית", "JOD - דינר ירדני", "ARS - פסו ארגנטינאי", "AFN - אפגני אפגני", "ALL - לק אלבני", "AMD - דראם ארמני", "ANG - גילדר הולנדי", "AOA - קוואנזה אנגולי", "AWG - פלורין ארובי", "AZN - מאנאט אזרבייג'ני", "BAM - מארק בוסני", "BBD - דולר ברבדי", "BDT - טאקה בנגלדשי", "BGN - לב בולגרי", "BHD - דינר בחרייני", "BIF - פרנק בורונדי", "BMD - דולר ברמודה", "BND - דולר ברוניי", "BOB - בוליביאנו", "BSD - דולר בהאמי", "BTN - נגולטרום בהוטני", "BWP - פולה בוצואני", "BYN - רובל בלארוסי", "BZD - דולר בליזי", "CDF - פרנק קונגולזי", "CLP - פסו צ'יליאני", "COP - פסו קולומביאני", "CRC - קולון קוסטה ריקני", "CUP - פסו קובני", "CVE - אסקודו כף ורדה", "DJF - פרנק ג'יבוטי", "DOP - פסו דומיניקני", "DZD - דינר אלג'ירי", "ERN - נאקפה אריתראי", "ETB - ביר אתיופי", "FJD - דולר פיג'י", "FKP - פאונד פוקלנד", "FOK - פאונד איי פארו", "GEL - לארי גאורגי", "GGP - פאונד גרנזי", "GHS - סדי גנאי", "GIP - פאונד גיברלטר", "GMD - דלאסי גמבי", "GNF - פרנק גינאי", "GTQ - קצל גואטמלי", "GYD - דולר גיאני", "HNL - למפירה הונדורסי", "HRK - קונה קרואטי", "HTG - גורד האיטי", "IMP - פאונד אי מאן", "IQD - דינר עיראקי", "IRR - ריאל איראני", "ISK - קרונה איסלנדית", "JEP - פאונד ג'רזי", "JMD - דולר ג'מייקני", "KES - שילינג קנייתי", "KGS - סום קירגיזי", "KHR - ריל קמבודי", "KID - דולר קיריבטי", "KMF - פרנק קומורו", "KWD - דינר כוויתי", "KYD - דולר איי קיימן", "KZT - טנגה קזחי", "LAK - קיפ לאי", "LBP - לירה לבנונית", "LKR - רופי סרי לנקי", "LRD - דולר ליברי", "LSL - לוטי לסוטו", "LYD - דינר לובי", "MAD - דירהם מרוקאי", "MDL - לאו מולדובני", "MGA - אריארי מלגשי", "MKD - דינר מקדוני", "MMK - קיאט מיאנמרי", "MNT - טוגרוג מונגולי", "MOP - פטקה מקאו", "MRU - אוגויה מוריטני", "MUR - רופי מאוריציני", "MVR - רופיה מלדיבית", "MWK - קוואצ'ה מלאווי", "MYR - רינגיט מלזי", "MZN - מטיקל מוזמביקי", "NAD - דולר נמיבי", "NGN - נאירה ניגרית", "NIO - קורדובה ניקרגואה", "NPR - רופי נפאלי", "OMR - ריאל עומאני", "PAB - בלבואה פנמי", "PEN - סול פרואני", "PGK - קינה פפואה", "PHP - פסו פיליפיני", "PKR - רופי פקיסטני", "PYG - גוארני פרגוואי", "QAR - ריאל קטארי", "RON - לאו רומני", "RSD - דינר סרבי", "RWF - פרנק רואנדי", "SBD - דולר איי שלמה", "SCR - רופי סיישל", "SDG - פאונד סודאני", "SHP - פאונד סנט הלנה", "SLE - ליאון סיירה לאון", "SOS - שילינג סומלי", "SRD - דולר סורינאמי", "SSP - פאונד דרום סודאני", "STN - דוברה סאו טומה", "SYP - לירה סורית", "SZL - לילנגני סווזילנדי", "TJS - סומוני טג'יקי", "TMT - מאנאט טורקמני", "TND - דינר תוניסאי", "TOP - פאנגה טונגני", "TTD - דולר טרינידד וטובגו", "TVD - דולר טובאלו", "TWD - דולר טייוואני חדש", "TZS - שילינג טנזני", "UAH - הריבניה אוקראינית", "UGX - שילינג אוגנדי", "UYU - פסו אורוגוואי", "UZS - סום אוזבקי", "VES - בוליבר ונצואלי", "VND - דונג וייטנאמי", "VUV - ואטו ונואטו", "WST - טאלה סמואי", "XAF - פרנק CFA אפריקת המשוונית", "XCD - דולר מזרח קריבי", "XDR - זכויות משיכה מיוחדות", "XOF - פרנק CFA מערב אפריקאי", "XPF - פרנק CFP", "YER - ריאל תימני", "ZMW - קוואצ'ה זמבי", "ZWL - דולר זימבבואי"
+    )
 
     private val categories = listOf(
         "🧮 מחשבון רגיל", "🔬 מחשבון מדעי fx991", "🧾 מחשבון מע״מ", "🏦 מחשבון הלוואה",
@@ -59,8 +68,7 @@ class MainActivity : Activity() {
         "📊 חישוב אחוזים", "🏷️ חישוב הנחות", "💰 חלוקת טיפים", "🏃 מדד BMI", "🎂 חישוב גיל",
         "💵 המרת מטבעות לייב", "🔥 מחשבון BMR", "➗ משוואות ריבועיות", "⅟ מחשבון שברים", "⚙️ הגדרות וערכות נושא"
     )
-
-    override fun onCreate(savedInstanceState: Bundle?) {
+        override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE); loadPreferences()
 
@@ -92,60 +100,34 @@ class MainActivity : Activity() {
         rootFrame.addView(mainContent); rootFrame.addView(dimView); rootFrame.addView(drawerScroll)
         drawerScroll.translationX = dp(280f).toFloat()
 
-        setContentView(rootFrame)
-        setupShortcuts()
-        handleIntent(intent)
+        setContentView(rootFrame); setupShortcuts(); handleIntent(intent)
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        handleIntent(intent)
-    }
+    override fun onNewIntent(intent: Intent?) { super.onNewIntent(intent); handleIntent(intent) }
+    private fun handleIntent(intent: Intent?) { when (intent?.action) { "ACTION_CALC" -> { currentTabIndex = 0; applyTheme() }; "ACTION_SCI" -> { currentTabIndex = 1; applyTheme() }; "ACTION_COIN" -> { currentTabIndex = 13; applyTheme() }; else -> applyTheme() } }
+    private fun setupShortcuts() { if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) { val sm = getSystemService(ShortcutManager::class.java); val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build(); val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מחשבון מדעי").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build(); sm.dynamicShortcuts = listOf(s1, s2) } }
 
-    private fun handleIntent(intent: Intent?) {
-        when (intent?.action) {
-            "ACTION_CALC" -> { currentTabIndex = 0; applyTheme() }
-            "ACTION_SCI" -> { currentTabIndex = 1; applyTheme() }
-            "ACTION_COIN" -> { currentTabIndex = 13; applyTheme() }
-            else -> applyTheme()
-        }
-    }
-
-    private fun setupShortcuts() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
-            val sm = getSystemService(ShortcutManager::class.java)
-            val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות לייב").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build()
-            val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מחשבון מדעי").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build()
-            sm.dynamicShortcuts = listOf(s1, s2)
-        }
-    }
-        private fun loadPreferences() {
+    private fun loadPreferences() {
         useHaptic = prefs.getBoolean("useHaptic", true); useSound = prefs.getBoolean("useSound", true); keepScreenOn = prefs.getBoolean("keepScreenOn", false)
         calcPrecision = prefs.getInt("calcPrecision", 8); buttonCornerStyle = prefs.getFloat("buttonCornerStyle", 24f)
         primaryColor = prefs.getInt("primaryColor", Color.parseColor("#64B5F6")); bgColor = prefs.getInt("bgColor", Color.parseColor("#08090C"))
         memoryValue = Double.fromBits(prefs.getLong("memoryValue", 0L)); val savedHist = prefs.getString("history", "") ?: ""
+        fromCurrency = prefs.getString("fromCurrency", "ILS") ?: "ILS"; toCurrency = prefs.getString("toCurrency", "USD") ?: "USD"
         historyList.clear(); if (savedHist.isNotEmpty()) historyList.addAll(savedHist.split("||")); updateKeepScreenOn()
     }
 
-    private fun savePreferences() { prefs.edit().putBoolean("useHaptic", useHaptic).putBoolean("useSound", useSound).putBoolean("keepScreenOn", keepScreenOn).putInt("calcPrecision", calcPrecision).putFloat("buttonCornerStyle", buttonCornerStyle).putInt("primaryColor", primaryColor).putInt("bgColor", bgColor).putLong("memoryValue", memoryValue.toRawBits()).putString("history", historyList.take(30).joinToString("||")).apply() }
+    private fun savePreferences() { prefs.edit().putBoolean("useHaptic", useHaptic).putBoolean("useSound", useSound).putBoolean("keepScreenOn", keepScreenOn).putInt("calcPrecision", calcPrecision).putFloat("buttonCornerStyle", buttonCornerStyle).putInt("primaryColor", primaryColor).putInt("bgColor", bgColor).putLong("memoryValue", memoryValue.toRawBits()).putString("fromCurrency", fromCurrency).putString("toCurrency", toCurrency).putString("history", historyList.take(30).joinToString("||")).apply() }
     private fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
 
-    private fun applyTheme() {
-        window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor())
-        updateDrawerSelection(); switchTab(currentTabIndex)
-    }
-
+    private fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor()); updateDrawerSelection(); switchTab(currentTabIndex) }
     private fun openDrawer() { val drawer = rootFrame.getChildAt(2); dimView.visibility = View.VISIBLE; dimView.animate().alpha(1f).setDuration(250).start(); drawer.animate().translationX(0f).setDuration(250).setInterpolator(android.view.animation.DecelerateInterpolator()).start(); isDrawerOpen = true }
     private fun closeDrawer() { val drawer = rootFrame.getChildAt(2); dimView.animate().alpha(0f).setDuration(250).withEndAction { dimView.visibility = View.GONE }.start(); drawer.animate().translationX(dp(280f).toFloat()).setDuration(250).setInterpolator(android.view.animation.AccelerateInterpolator()).start(); isDrawerOpen = false }
-
     private fun getCardColor(): Int = lightenColor(bgColor, 0.06f)
     private fun getStrokeColor(): Int = lightenColor(bgColor, 0.15f)
     private fun lightenColor(color: Int, fraction: Float): Int { val r = Color.red(color); val g = Color.green(color); val b = Color.blue(color); return Color.rgb((r + (255 - r) * fraction).toInt(), (g + (255 - g) * fraction).toInt(), (b + (255 - b) * fraction).toInt()) }
-
     private fun feedback(view: View) { if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); if (useSound) view.playSoundEffect(SoundEffectConstants.CLICK) }
     private fun copyToClipboard(text: String) { val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager; cb.setPrimaryClip(ClipData.newPlainText("CalcResult", text)); Toast.makeText(this, "הועתק: $text 📋", Toast.LENGTH_SHORT).show() }
-
-    private fun showHistoryDialog() {
+        private fun showHistoryDialog() {
         if (historyList.isEmpty()) { Toast.makeText(this, "היסטוריית החישובים ריקה", Toast.LENGTH_SHORT).show(); return }
         val items = historyList.toTypedArray()
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("🕒 היסטוריה (לחץ להזנה)").setItems(items) { _, which -> val selected = items[which].substringAfter("=").trim(); currentInput = selected; justCalculated = true; if (currentTabIndex != 0 && currentTabIndex != 1) switchTab(0) else currentView?.text = currentInput }.setNeutralButton("נקה הכל") { _, _ -> historyList.clear(); savePreferences(); Toast.makeText(this, "נמחק", Toast.LENGTH_SHORT).show() }.setPositiveButton("סגור", null).show()
@@ -173,13 +155,14 @@ class MainActivity : Activity() {
         }
         contentFrame.addView(view)
     }
-        private fun evalMathExpression(str: String): Double {
+
+    private fun evalMathExpression(str: String): Double {
         val expr = str.replace("×", "*").replace("÷", "/").replace("−", "-").replace("π", Math.PI.toString()).replace("e", Math.E.toString()).replace("%", "/100")
         return object : Any() {
             var pos = -1; var ch = 0
             fun nextChar() { ch = if (++pos < expr.length) expr[pos].toInt() else -1 }
             fun eat(charToEat: Int): Boolean { while (ch == ' '.toInt()) nextChar(); if (ch == charToEat) { nextChar(); return true }; return false }
-            fun parse(): Double { nextChar(); val x = parseExpression(); if (pos < expr.length) throw RuntimeException("Unexpected: " + ch.toChar()); return x }
+            fun parse(): Double { nextChar(); val x = parseExpression(); if (pos < expr.length) throw RuntimeException("Unexpected"); return x }
             fun parseExpression(): Double { var x = parseTerm(); while (true) { if (eat('+'.toInt())) x += parseTerm() else if (eat('-'.toInt())) x -= parseTerm() else return x } }
             fun parseTerm(): Double { var x = parseFactor(); while (true) { if (eat('*'.toInt())) x *= parseFactor() else if (eat('/'.toInt())) x /= parseFactor() else return x } }
             fun parseFactor(): Double {
@@ -190,8 +173,8 @@ class MainActivity : Activity() {
                 else if (eat('√'.toInt())) { x = Math.sqrt(parseFactor()) }
                 else if (ch >= 'a'.toInt() && ch <= 'z'.toInt()) {
                     while (ch >= 'a'.toInt() && ch <= 'z'.toInt()) nextChar(); val func = expr.substring(startPos, pos); x = parseFactor()
-                    x = when(func) { "sin" -> Math.sin(Math.toRadians(x)); "cos" -> Math.cos(Math.toRadians(x)); "tan" -> Math.tan(Math.toRadians(x)); "log" -> Math.log10(x); "ln" -> Math.log(x); "sqrt" -> Math.sqrt(x); else -> throw RuntimeException("Unknown: $func") }
-                } else throw RuntimeException("Unexpected: " + ch.toChar())
+                    x = when(func) { "sin" -> Math.sin(Math.toRadians(x)); "cos" -> Math.cos(Math.toRadians(x)); "tan" -> Math.tan(Math.toRadians(x)); "log" -> Math.log10(x); "ln" -> Math.log(x); "sqrt" -> Math.sqrt(x); else -> throw RuntimeException() }
+                } else throw RuntimeException()
                 if (eat('^'.toInt())) x = Math.pow(x, parseFactor())
                 if (eat('!'.toInt())) { var fact = 1.0; for (i in 2..x.toInt()) fact *= i; x = fact }
                 return x
@@ -199,11 +182,8 @@ class MainActivity : Activity() {
         }.parse()
     }
 
-    private var currentInput = ""
-    private var justCalculated = false
-    private var expressionView: TextView? = null
-    private var currentView: TextView? = null
-    private var memoryIndicator: TextView? = null
+    private var currentInput = ""; private var justCalculated = false
+    private var expressionView: TextView? = null; private var currentView: TextView? = null; private var memoryIndicator: TextView? = null
 
     private fun createBasicCalculator(): View = createCalculatorLayout(listOf(listOf("MC", "MR", "M+", "M-"), listOf("AC", "⌫", "%", "÷"), listOf("7", "8", "9", "×"), listOf("4", "5", "6", "−"), listOf("1", "2", "3", "+"), listOf("(", "0", ".", "=")))
     private fun createScientificCalculator(): View = createCalculatorLayout(listOf(listOf("sin", "cos", "tan", "log", "ln"), listOf("√", "x²", "x³", "x^y", "!"), listOf("π", "e", "(", ")", "÷"), listOf("7", "8", "9", "%", "×"), listOf("4", "5", "6", "MC", "−"), listOf("1", "2", "3", "MR", "+"), listOf("AC", "0", ".", "⌫", "=")), isGrid5x7 = true)
@@ -232,7 +212,6 @@ class MainActivity : Activity() {
         val strokeColor = if (symbol == "=" || symbol == "AC") Color.TRANSPARENT else getStrokeColor()
         val textColor = when { symbol == "AC" -> Color.WHITE; symbol == "=" -> Color.parseColor("#08090C"); isMem || symbol in listOf("⌫", "%", "÷", "×", "−", "+") -> primaryColor; else -> Color.WHITE }
         val shape = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(buttonCornerStyle).toFloat(); setColor(defaultBg); setStroke(dp(1.5f), strokeColor) }
-
         return TextView(this).apply {
             text = symbol; setTextColor(textColor); setAutoSizeTextTypeUniformWithConfiguration(10, if(isSmall) 22 else 28, 2, TypedValue.COMPLEX_UNIT_SP); typeface = if (symbol == "=" || isOp || isMem) Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER; background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); isClickable = true
             setOnTouchListener { v, e -> when (e.actionMasked) { MotionEvent.ACTION_DOWN -> { feedback(v); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) } }; false }
@@ -255,7 +234,10 @@ class MainActivity : Activity() {
     }
 
     private fun formatResult(res: Double): String { return try { if (res.isNaN() || res.isInfinite()) "Error" else BigDecimal.valueOf(res).setScale(calcPrecision, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() } catch (e: Exception) { "Error" } }
-        private fun createInputBox(hintText: String): EditText {
+        // =========================================================================
+    // רכיבי UI עזר + מחשבון מטבעות מתקדם
+    // =========================================================================
+    private fun createInputBox(hintText: String): EditText {
         return EditText(this).apply { hint = hintText; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE); inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; textSize = 17f; setPadding(dp(18f), dp(18f), dp(18f), dp(18f)); background = GradientDrawable().apply { setColor(getCardColor()); cornerRadius = dp(16f).toFloat(); setStroke(dp(1.5f), getStrokeColor()) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14f) } }
     }
 
@@ -266,25 +248,67 @@ class MainActivity : Activity() {
 
     private fun createResultTextView(): TextView = TextView(this).apply { setTextColor(Color.WHITE); textSize = 20f; gravity = Gravity.CENTER; setPadding(0, dp(20f), 0, 0); setOnClickListener { if (text.isNotEmpty()) { feedback(it); copyToClipboard(text.toString()) } } }
 
-    private fun createCurrencyCalculator(): View {
-        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
-        val amountInput = createInputBox("סכום להמרה (₪)"); val res = createResultTextView().apply { textSize = 18f }
-        val btn = createActionBtn("💱 משוך שערי מטבע בזמן אמת") {
-            val amount = amountInput.text.toString().toDoubleOrNull() ?: 1.0; res.text = "טוען נתונים מהאינטרנט..."
-            thread {
-                try {
-                    val response = URL("https://open.er-api.com/v6/latest/ILS").readText()
-                    val json = JSONObject(response); val rates = json.getJSONObject("rates")
-                    val usd = 1.0 / rates.getDouble("USD"); val eur = 1.0 / rates.getDouble("EUR"); val gbp = 1.0 / rates.getDouble("GBP")
-                    val time = json.getString("time_last_update_utc").substring(0, 16)
-                    Handler(Looper.getMainLooper()).post { res.text = "עבור ₪${formatCurrency(amount)}:\n\n🇺🇸 דולר (USD): $${formatCurrency(amount * rates.getDouble("USD"))}\n🇪🇺 אירו (EUR): €${formatCurrency(amount * rates.getDouble("EUR"))}\n🇬🇧 פאונד (GBP): £${formatCurrency(amount * rates.getDouble("GBP"))}\n\nשערי חליפין (₪1 שווה ל...):\nדולר: ₪${formatCurrency(usd)}\nאירו: ₪${formatCurrency(eur)}\nפאונד: ₪${formatCurrency(gbp)}\n\nעודכן ב: $time" }
-                } catch (e: Exception) { Handler(Looper.getMainLooper()).post { res.text = "שגיאה בחיבור לאינטרנט.\nודא שיש לך קליטה ונסה שוב." } }
+    private fun showCurrencyPicker(title: String, onSelected: (String) -> Unit) {
+        val dialogView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16f), dp(16f), dp(16f), dp(16f)); setBackgroundColor(getCardColor()) }
+        val searchInput = EditText(this).apply { hint = "חפש מטבע (למשל USD או דולר)"; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE); setPadding(dp(12f), dp(12f), dp(12f), dp(12f)); background = GradientDrawable().apply { setColor(bgColor); cornerRadius = dp(8f).toFloat(); setStroke(dp(1f), getStrokeColor()) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12f) } }
+        val scrollView = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(400f)) }
+        val listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scrollView.addView(listContainer)
+        
+        val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(title).setView(dialogView).create()
+
+        fun populateList(query: String) {
+            listContainer.removeAllViews()
+            val filtered = allCurrencies.filter { it.contains(query, ignoreCase = true) }
+            for (curr in filtered) {
+                val itemBtn = TextView(this).apply {
+                    text = curr; setTextColor(Color.WHITE); textSize = 16f; setPadding(dp(16f), dp(16f), dp(16f), dp(16f))
+                    setOnClickListener { feedback(it); onSelected(curr.substring(0, 3)); dialog.dismiss() }
+                }
+                listContainer.addView(itemBtn)
+                listContainer.addView(View(this).apply { setBackgroundColor(getStrokeColor()); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1f)) })
             }
         }
-        root.addView(amountInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
+        
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { populateList(s.toString()) }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        populateList("")
+        dialogView.addView(searchInput); dialogView.addView(scrollView); dialog.show()
     }
 
-    private fun createVatCalculator(): View {
+    private fun createCurrencyCalculator(): View {
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+        val amountInput = createInputBox("הזן סכום להמרה")
+        
+        val currencyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }
+        val fromBtn = createActionBtn("מקור: $fromCurrency", false) { showCurrencyPicker("בחר מטבע מקור") { sel -> fromCurrency = sel; savePreferences(); (it as TextView).text = "מקור: $sel" } }
+        fromBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(8f) }
+        val arrow = TextView(this).apply { text = "➡"; setTextColor(Color.WHITE); textSize = 24f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(40f), LinearLayout.LayoutParams.WRAP_CONTENT) }
+        val toBtn = createActionBtn("יעד: $toCurrency", false) { showCurrencyPicker("בחר מטבע יעד") { sel -> toCurrency = sel; savePreferences(); (it as TextView).text = "יעד: $sel" } }
+        toBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8f) }
+        currencyRow.addView(fromBtn); currencyRow.addView(arrow); currencyRow.addView(toBtn)
+
+        val res = createResultTextView().apply { textSize = 18f }
+        val btn = createActionBtn("💱 המר מטבע עכשיו (לייב)") {
+            val amount = amountInput.text.toString().toDoubleOrNull() ?: 1.0; res.text = "מתחבר לבורסה ומוריד שערי מטבע..."
+            thread {
+                try {
+                    val response = URL("https://open.er-api.com/v6/latest/$fromCurrency").readText()
+                    val json = JSONObject(response); val rates = json.getJSONObject("rates")
+                    if (rates.has(toCurrency)) {
+                        val rate = rates.getDouble(toCurrency); val total = amount * rate; val time = json.getString("time_last_update_utc").substring(0, 16)
+                        Handler(Looper.getMainLooper()).post { res.text = "${formatCurrency(amount)} $fromCurrency שווים ל:\n\n${formatCurrency(total)} $toCurrency\n\nשער חליפין: 1 $fromCurrency = ${formatCurrency(rate)} $toCurrency\n\nעודכן ב: $time" }
+                    } else { Handler(Looper.getMainLooper()).post { res.text = "המטבע $toCurrency לא נמצא במאגר כרגע." } }
+                } catch (e: Exception) { Handler(Looper.getMainLooper()).post { res.text = "שגיאה בחיבור לאינטרנט.\nבדוק את הקליטה ונסה שוב." } }
+            }
+        }
+        root.addView(amountInput); root.addView(currencyRow); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
+    }
+        private fun createVatCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val amountInput = createInputBox("סכום (₪)"); val vatInput = createInputBox("אחוז מע״מ (ברירת מחדל 18%)"); val res = createResultTextView()
         val addBtn = createActionBtn("הוסף מע״מ לסכום (+)") { val a = amountInput.text.toString().toDoubleOrNull(); val v = vatInput.text.toString().toDoubleOrNull() ?: 18.0; if (a != null) { val vat = a * (v / 100); res.text = "סכום מע״מ: ₪${formatCurrency(vat)}\nסה״כ כולל מע״מ: ₪${formatCurrency(a + vat)}" } }
@@ -326,7 +350,8 @@ class MainActivity : Activity() {
         val btn = createActionBtn("המר בסיסי ספירה") { val n = numInput.text.toString().toLongOrNull(); if (n != null) res.text = "בינארי (BIN):\n${java.lang.Long.toBinaryString(n)}\n\nהקסדצימלי (HEX):\n${java.lang.Long.toHexString(n).uppercase()}" else res.text = "נא להזין מספר שלם." }
         root.addView(numInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
-        private fun createPercentageCalculator(): View {
+
+    private fun createPercentageCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val pctInput = createInputBox("אחוז (למשל 15)"); val totalInput = createInputBox("מתוך סכום (למשל 200)"); val res = createResultTextView()
         val btn = createActionBtn("חשב אחוז") { val pct = pctInput.text.toString().toDoubleOrNull(); val total = totalInput.text.toString().toDoubleOrNull(); if (pct != null && total != null) res.text = "$pct% מתוך $total הם:\n\n${formatCurrency(total * (pct / 100.0))}" }
@@ -342,7 +367,7 @@ class MainActivity : Activity() {
 
     private fun createTipCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
-        val billIn = createInputBox("סכום החשבון (₪)"); val tipIn = createInputBox("אחוז טיפ (ברירת מחדל 10%)"); val pplIn = createInputBox("מספר סועדים (ברירת מחדל 1)"); val res = createResultTextView()
+        val billIn = createInputBox("סכום החשבון (₪)"); val tipIn = createInputBox("אחוז טיפ (ברירת מחדל 10%)"); val pplIn = createInputBox("מספר סועדים"); val res = createResultTextView()
         val btn = createActionBtn("חשב טיפ") { val b = billIn.text.toString().toDoubleOrNull(); val t = tipIn.text.toString().toDoubleOrNull() ?: 10.0; val p = pplIn.text.toString().toIntOrNull() ?: 1; if (b != null && p > 0) { val tip = b * (t / 100); val tot = b + tip; res.text = "טיפ: ₪${formatCurrency(tip)}\nסה״כ: ₪${formatCurrency(tot)}\nלכל סועד: ₪${formatCurrency(tot / p)}" } }
         root.addView(billIn); root.addView(tipIn); root.addView(pplIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
@@ -372,7 +397,7 @@ class MainActivity : Activity() {
     private fun createQuadraticCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val aIn = createInputBox("מקדם A (לדוגמה 1)"); val bIn = createInputBox("מקדם B (לדוגמה -5)"); val cIn = createInputBox("מקדם C (לדוגמה 6)"); val res = createResultTextView()
-        val btn = createActionBtn("פתור משוואה ריבועית") { val a=aIn.text.toString().toDoubleOrNull(); val b=bIn.text.toString().toDoubleOrNull(); val c=cIn.text.toString().toDoubleOrNull(); if(a!=null&&b!=null&&c!=null) { if(a==0.0) { res.text="משוואה ממעלה ראשונה (A לא יכול להיות 0)." } else { val delta=b*b - 4*a*c; if(delta>0) { val x1=(-b+Math.sqrt(delta))/(2*a); val x2=(-b-Math.sqrt(delta))/(2*a); res.text="שני פתרונות:\nX1 = ${formatCurrency(x1)}\nX2 = ${formatCurrency(x2)}" } else if(delta==0.0) { val x=-b/(2*a); res.text="פתרון יחיד:\nX = ${formatCurrency(x)}" } else { res.text="אין פתרונות ממשיים (Δ < 0)" } } } else res.text="נא להזין נתונים תקינים." }
+        val btn = createActionBtn("פתור משוואה ריבועית") { val a=aIn.text.toString().toDoubleOrNull(); val b=bIn.text.toString().toDoubleOrNull(); val c=cIn.text.toString().toDoubleOrNull(); if(a!=null&&b!=null&&c!=null) { if(a==0.0) { res.text="משוואה ממעלה ראשונה." } else { val delta=b*b - 4*a*c; if(delta>0) { val x1=(-b+Math.sqrt(delta))/(2*a); val x2=(-b-Math.sqrt(delta))/(2*a); res.text="שני פתרונות:\nX1 = ${formatCurrency(x1)}\nX2 = ${formatCurrency(x2)}" } else if(delta==0.0) { val x=-b/(2*a); res.text="פתרון יחיד:\nX = ${formatCurrency(x)}" } else { res.text="אין פתרונות ממשיים (Δ < 0)" } } } else res.text="נא להזין נתונים תקינים." }
         root.addView(aIn); root.addView(bIn); root.addView(cIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
     }
 
@@ -380,7 +405,7 @@ class MainActivity : Activity() {
     private fun createFractionCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val n1 = createInputBox("מונה שבר ראשון"); val d1 = createInputBox("מכנה שבר ראשון"); val n2 = createInputBox("מונה שבר שני"); val d2 = createInputBox("מכנה שבר שני"); val res = createResultTextView()
-        fun calc(op: String) { val num1=n1.text.toString().toLongOrNull(); val den1=d1.text.toString().toLongOrNull(); val num2=n2.text.toString().toLongOrNull(); val den2=d2.text.toString().toLongOrNull(); if(num1!=null&&den1!=null&&den1!=0L&&num2!=null&&den2!=null&&den2!=0L) { var rNum=0L; var rDen=1L; when(op){ "+"->{rNum=num1*den2+num2*den1; rDen=den1*den2}; "-"->{rNum=num1*den2-num2*den1; rDen=den1*den2}; "*"->{rNum=num1*num2; rDen=den1*den2}; "/"->{rNum=num1*den2; rDen=den1*num2} }; if(rDen==0L) { res.text="חלוקה באפס!"; return }; val g=Math.abs(gcd(rNum, rDen)); rNum/=g; rDen/=g; if(rDen<0) { rNum=-rNum; rDen=-rDen }; res.text=if(rDen==1L) "תוצאה מצומצמת: $rNum" else "תוצאה מצומצמת: $rNum / $rDen" } else res.text="נתונים לא תקינים (המכנה לא יכול להיות 0)" }
+        fun calc(op: String) { val num1=n1.text.toString().toLongOrNull(); val den1=d1.text.toString().toLongOrNull(); val num2=n2.text.toString().toLongOrNull(); val den2=d2.text.toString().toLongOrNull(); if(num1!=null&&den1!=null&&den1!=0L&&num2!=null&&den2!=null&&den2!=0L) { var rNum=0L; var rDen=1L; when(op){ "+"->{rNum=num1*den2+num2*den1; rDen=den1*den2}; "-"->{rNum=num1*den2-num2*den1; rDen=den1*den2}; "*"->{rNum=num1*num2; rDen=den1*den2}; "/"->{rNum=num1*den2; rDen=den1*num2} }; if(rDen==0L) { res.text="חלוקה באפס!"; return }; val g=Math.abs(gcd(rNum, rDen)); rNum/=g; rDen/=g; if(rDen<0) { rNum=-rNum; rDen=-rDen }; res.text=if(rDen==1L) "תוצאה מצומצמת: $rNum" else "תוצאה מצומצמת: $rNum / $rDen" } else res.text="נתונים לא תקינים" }
         val btnAdd = createActionBtn("חיבור שברים (+)", true) { calc("+") }; val btnSub = createActionBtn("חיסור שברים (-)", false) { calc("-") }; val btnMul = createActionBtn("כפל שברים (×)", true) { calc("*") }; val btnDiv = createActionBtn("חילוק שברים (÷)", false) { calc("/") }
         root.addView(n1); root.addView(d1); root.addView(n2); root.addView(d2); root.addView(btnAdd); root.addView(btnSub); root.addView(btnMul); root.addView(btnDiv); root.addView(res); scroll.addView(root); return scroll
     }
@@ -410,8 +435,8 @@ class MainActivity : Activity() {
         }
 
         fun loadColorPicker() { refreshTargetButtons(); pickerContainer.removeAllViews(); pickerContainer.addView(createFullColorWheelPicker(if (editingTarget == 0) primaryColor else bgColor) { newColor -> if (editingTarget == 0) primaryColor = newColor else bgColor = newColor; savePreferences(); window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor()); updateDrawerSelection(); refreshTargetButtons() }) }
-        btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
-        btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
+        btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
+        btnEditBg = TextView(this).apply { text = "🌌 צבע רקע"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
         targetRow.addView(btnEditPrimary); targetRow.addView(btnEditBg)
         pickerContainer = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(18f) } }
         loadColorPicker()
