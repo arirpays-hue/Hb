@@ -446,4 +446,15 @@ fun createColorWheelPicker(context: Context, initialColor: Int, onColorChanged: 
     previewRow.addView(previewCircle); previewRow.addView(hexLabel)
 
     lateinit var wheelView: ColorWheelView
-    fun notifyColorUpdate() { val finalColor = Color.HSVToColor(currentAlpha, hsv); (previewCircle.background as GradientDrawable).setColor(finalColor); hexLabel.text = String.format("#%08X", finalColor); wheelView.update
+    fun notifyColorUpdate() { val finalColor = Color.HSVToColor(currentAlpha, hsv); (previewCircle.background as GradientDrawable).setColor(finalColor); hexLabel.text = String.format("#%08X", finalColor); wheelView.updateHSV(hsv[0], hsv[1], hsv[2]); onColorChanged(finalColor) }
+    wheelView = ColorWheelView(context, hsv[0], hsv[1], hsv[2]) { h, s -> hsv[0] = h; hsv[1] = s; notifyColorUpdate() }.apply { layoutParams = LinearLayout.LayoutParams(dp(220f, context), dp(220f, context)).apply { bottomMargin = dp(14f, context) } }
+
+    val brightLabel = TextView(context).apply { text = "☀️ בהירות"; setTextColor(Color.WHITE); textSize = 14f }
+    val brightSeek = SeekBar(context).apply { max = 100; progress = (hsv[2] * 100).toInt(); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12f, context) }; setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s: SeekBar?, p: Int, u: Boolean) { hsv[2] = p.coerceAtLeast(5) / 100f; if (u) notifyColorUpdate() }; override fun onStartTrackingTouch(s: SeekBar?) {}; override fun onStopTrackingTouch(s: SeekBar?) {} }) }
+    val alphaLabel = TextView(context).apply { text = "💧 שקיפות"; setTextColor(Color.WHITE); textSize = 14f }
+    val alphaSeek = SeekBar(context).apply { max = 255; progress = currentAlpha; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT); setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(s: SeekBar?, p: Int, u: Boolean) { currentAlpha = p.coerceAtLeast(35); if (u) notifyColorUpdate() }; override fun onStartTrackingTouch(s: SeekBar?) {}; override fun onStopTrackingTouch(s: SeekBar?) {} }) }
+
+    card.addView(previewRow); card.addView(wheelView); card.addView(brightLabel); card.addView(brightSeek); card.addView(alphaLabel); card.addView(alphaSeek); return card
+}
+
+fun dp(value: Float, context: Context): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, context.resources.displayMetrics).toInt()
