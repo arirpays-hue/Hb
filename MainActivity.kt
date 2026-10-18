@@ -6,12 +6,18 @@ import android.app.DatePickerDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
 import android.content.res.ColorStateList
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.Icon
 import android.graphics.drawable.RippleDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
@@ -21,9 +27,12 @@ import android.view.SoundEffectConstants
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import org.json.JSONObject
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.net.URL
 import java.util.Calendar
+import kotlin.concurrent.thread
 import kotlin.math.pow
 
 class MainActivity : Activity() {
@@ -48,7 +57,7 @@ class MainActivity : Activity() {
         "🧮 מחשבון רגיל", "🔬 מחשבון מדעי fx991", "🧾 מחשבון מע״מ", "🏦 מחשבון הלוואה",
         "📏 המרת מרחקים", "⚖️ המרת משקלים", "🌡️ המרת טמפ׳", "💻 מחשבון מתכנתים",
         "📊 חישוב אחוזים", "🏷️ חישוב הנחות", "💰 חלוקת טיפים", "🏃 מדד BMI", "🎂 חישוב גיל",
-        "🔥 מחשבון BMR", "➗ משוואות ריבועיות", "⅟ מחשבון שברים", "⚙️ הגדרות וערכות נושא"
+        "💵 המרת מטבעות לייב", "🔥 מחשבון BMR", "➗ משוואות ריבועיות", "⅟ מחשבון שברים", "⚙️ הגדרות וערכות נושא"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,10 +92,34 @@ class MainActivity : Activity() {
         rootFrame.addView(mainContent); rootFrame.addView(dimView); rootFrame.addView(drawerScroll)
         drawerScroll.translationX = dp(280f).toFloat()
 
-        setContentView(rootFrame); applyTheme()
+        setContentView(rootFrame)
+        setupShortcuts()
+        handleIntent(intent)
     }
 
-    private fun loadPreferences() {
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        when (intent?.action) {
+            "ACTION_CALC" -> { currentTabIndex = 0; applyTheme() }
+            "ACTION_SCI" -> { currentTabIndex = 1; applyTheme() }
+            "ACTION_COIN" -> { currentTabIndex = 13; applyTheme() }
+            else -> applyTheme()
+        }
+    }
+
+    private fun setupShortcuts() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N_MR1) {
+            val sm = getSystemService(ShortcutManager::class.java)
+            val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות לייב").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build()
+            val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מחשבון מדעי").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build()
+            sm.dynamicShortcuts = listOf(s1, s2)
+        }
+    }
+        private fun loadPreferences() {
         useHaptic = prefs.getBoolean("useHaptic", true); useSound = prefs.getBoolean("useSound", true); keepScreenOn = prefs.getBoolean("keepScreenOn", false)
         calcPrecision = prefs.getInt("calcPrecision", 8); buttonCornerStyle = prefs.getFloat("buttonCornerStyle", 24f)
         primaryColor = prefs.getInt("primaryColor", Color.parseColor("#64B5F6")); bgColor = prefs.getInt("bgColor", Color.parseColor("#08090C"))
@@ -94,12 +127,10 @@ class MainActivity : Activity() {
         historyList.clear(); if (savedHist.isNotEmpty()) historyList.addAll(savedHist.split("||")); updateKeepScreenOn()
     }
 
-    private fun savePreferences() {
-        prefs.edit().putBoolean("useHaptic", useHaptic).putBoolean("useSound", useSound).putBoolean("keepScreenOn", keepScreenOn).putInt("calcPrecision", calcPrecision).putFloat("buttonCornerStyle", buttonCornerStyle).putInt("primaryColor", primaryColor).putInt("bgColor", bgColor).putLong("memoryValue", memoryValue.toRawBits()).putString("history", historyList.take(30).joinToString("||")).apply()
-    }
-
+    private fun savePreferences() { prefs.edit().putBoolean("useHaptic", useHaptic).putBoolean("useSound", useSound).putBoolean("keepScreenOn", keepScreenOn).putInt("calcPrecision", calcPrecision).putFloat("buttonCornerStyle", buttonCornerStyle).putInt("primaryColor", primaryColor).putInt("bgColor", bgColor).putLong("memoryValue", memoryValue.toRawBits()).putString("history", historyList.take(30).joinToString("||")).apply() }
     private fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-        private fun applyTheme() {
+
+    private fun applyTheme() {
         window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor())
         updateDrawerSelection(); switchTab(currentTabIndex)
     }
@@ -136,13 +167,13 @@ class MainActivity : Activity() {
             3 -> createLoanCalculator(); 4 -> createDistanceCalculator(); 5 -> createWeightCalculator()
             6 -> createTempCalculator(); 7 -> createProgrammerCalculator(); 8 -> createPercentageCalculator()
             9 -> createDiscountCalculator(); 10 -> createTipCalculator(); 11 -> createBMICalculator()
-            12 -> createAgeCalculator(); 13 -> createBmrCalculator(); 14 -> createQuadraticCalculator()
-            15 -> createFractionCalculator(); 16 -> createSettingsPage(); else -> createBasicCalculator()
+            12 -> createAgeCalculator(); 13 -> createCurrencyCalculator(); 14 -> createBmrCalculator()
+            15 -> createQuadraticCalculator(); 16 -> createFractionCalculator(); 17 -> createSettingsPage()
+            else -> createBasicCalculator()
         }
         contentFrame.addView(view)
     }
-
-    private fun evalMathExpression(str: String): Double {
+        private fun evalMathExpression(str: String): Double {
         val expr = str.replace("×", "*").replace("÷", "/").replace("−", "-").replace("π", Math.PI.toString()).replace("e", Math.E.toString()).replace("%", "/100")
         return object : Any() {
             var pos = -1; var ch = 0
@@ -167,35 +198,19 @@ class MainActivity : Activity() {
             }
         }.parse()
     }
-        private var currentInput = ""
+
+    private var currentInput = ""
     private var justCalculated = false
     private var expressionView: TextView? = null
     private var currentView: TextView? = null
     private var memoryIndicator: TextView? = null
 
-    private fun createBasicCalculator(): View = createCalculatorLayout(listOf(
-        listOf("MC", "MR", "M+", "M-"),
-        listOf("AC", "⌫", "%", "÷"), listOf("7", "8", "9", "×"),
-        listOf("4", "5", "6", "−"), listOf("1", "2", "3", "+"), listOf("(", "0", ".", "=")
-    ))
-
-    private fun createScientificCalculator(): View = createCalculatorLayout(listOf(
-        listOf("sin", "cos", "tan", "log", "ln"),
-        listOf("√", "x²", "x³", "x^y", "!"),
-        listOf("π", "e", "(", ")", "÷"),
-        listOf("7", "8", "9", "%", "×"),
-        listOf("4", "5", "6", "MC", "−"),
-        listOf("1", "2", "3", "MR", "+"),
-        listOf("AC", "0", ".", "⌫", "=")
-    ), isGrid5x7 = true)
+    private fun createBasicCalculator(): View = createCalculatorLayout(listOf(listOf("MC", "MR", "M+", "M-"), listOf("AC", "⌫", "%", "÷"), listOf("7", "8", "9", "×"), listOf("4", "5", "6", "−"), listOf("1", "2", "3", "+"), listOf("(", "0", ".", "=")))
+    private fun createScientificCalculator(): View = createCalculatorLayout(listOf(listOf("sin", "cos", "tan", "log", "ln"), listOf("√", "x²", "x³", "x^y", "!"), listOf("π", "e", "(", ")", "÷"), listOf("7", "8", "9", "%", "×"), listOf("4", "5", "6", "MC", "−"), listOf("1", "2", "3", "MR", "+"), listOf("AC", "0", ".", "⌫", "=")), isGrid5x7 = true)
 
     private fun createCalculatorLayout(rows: List<List<String>>, isGrid5x7: Boolean = false): View {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutDirection = View.LAYOUT_DIRECTION_LTR; setPadding(dp(14f), dp(0f), dp(14f), dp(14f)) }
-        val displayCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.BOTTOM or Gravity.END; setPadding(dp(18f), dp(14f), dp(18f), dp(14f))
-            background = GradientDrawable().apply { setColor(getCardColor()); cornerRadius = dp(28f).toFloat(); setStroke(dp(1.5f), getStrokeColor()) }
-            setOnClickListener { feedback(it); copyToClipboard(currentInput) }
-        }
+        val displayCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.BOTTOM or Gravity.END; setPadding(dp(18f), dp(14f), dp(18f), dp(14f)); background = GradientDrawable().apply { setColor(getCardColor()); cornerRadius = dp(28f).toFloat(); setStroke(dp(1.5f), getStrokeColor()) }; setOnClickListener { feedback(it); copyToClipboard(currentInput) } }
         memoryIndicator = TextView(this).apply { text = if (memoryValue != 0.0) "M = ${formatResult(memoryValue)}" else ""; setTextColor(primaryColor); textSize = 11f; gravity = Gravity.START }
         expressionView = TextView(this).apply { text = ""; setTextColor(Color.parseColor("#8A94A8")); setAutoSizeTextTypeUniformWithConfiguration(12, 22, 2, TypedValue.COMPLEX_UNIT_SP); gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f) }
         currentView = TextView(this).apply { text = if(currentInput.isEmpty()) "0" else currentInput; setTextColor(Color.WHITE); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); setAutoSizeTextTypeUniformWithConfiguration(22, 56, 2, TypedValue.COMPLEX_UNIT_SP); gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f) }
@@ -205,34 +220,22 @@ class MainActivity : Activity() {
         val keypad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (rowSymbols in rows) {
             val rowLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (symbol in rowSymbols) {
-                val weight = if (!isGrid5x7 && symbol == "0") 2f else 1f
-                rowLayout.addView(createAnimatedButton(symbol, isGrid5x7), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) })
-            }
+            for (symbol in rowSymbols) { val weight = if (!isGrid5x7 && symbol == "0") 2f else 1f; rowLayout.addView(createAnimatedButton(symbol, isGrid5x7), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) }) }
             keypad.addView(rowLayout, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
-        root.addView(keypad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, if(isGrid5x7) 0.72f else 0.68f))
-        return root
+        root.addView(keypad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, if(isGrid5x7) 0.72f else 0.68f)); return root
     }
 
     private fun createAnimatedButton(symbol: String, isSmall: Boolean): TextView {
-        val isMem = symbol in listOf("MC", "MR", "M+", "M-")
-        val isOp = symbol in listOf("÷", "×", "−", "+", "sin", "cos", "tan", "log", "ln", "√", "x²", "x³", "x^y", "!", "π", "e", "(", ")")
+        val isMem = symbol in listOf("MC", "MR", "M+", "M-"); val isOp = symbol in listOf("÷", "×", "−", "+", "sin", "cos", "tan", "log", "ln", "√", "x²", "x³", "x^y", "!", "π", "e", "(", ")")
         val defaultBg = when { symbol == "AC" -> lightenColor(Color.RED, 0.2f); symbol == "=" -> primaryColor; isMem -> lightenColor(bgColor, 0.03f); symbol in listOf("⌫", "%", "÷", "×", "−", "+") -> lightenColor(bgColor, 0.1f); else -> getCardColor() }
         val strokeColor = if (symbol == "=" || symbol == "AC") Color.TRANSPARENT else getStrokeColor()
         val textColor = when { symbol == "AC" -> Color.WHITE; symbol == "=" -> Color.parseColor("#08090C"); isMem || symbol in listOf("⌫", "%", "÷", "×", "−", "+") -> primaryColor; else -> Color.WHITE }
         val shape = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(buttonCornerStyle).toFloat(); setColor(defaultBg); setStroke(dp(1.5f), strokeColor) }
 
         return TextView(this).apply {
-            text = symbol; setTextColor(textColor); setAutoSizeTextTypeUniformWithConfiguration(10, if(isSmall) 22 else 28, 2, TypedValue.COMPLEX_UNIT_SP); typeface = if (symbol == "=" || isOp || isMem) Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER
-            background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); isClickable = true
-            setOnTouchListener { v, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { feedback(v); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) }
-                }
-                false
-            }
+            text = symbol; setTextColor(textColor); setAutoSizeTextTypeUniformWithConfiguration(10, if(isSmall) 22 else 28, 2, TypedValue.COMPLEX_UNIT_SP); typeface = if (symbol == "=" || isOp || isMem) Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER; background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); isClickable = true
+            setOnTouchListener { v, e -> when (e.actionMasked) { MotionEvent.ACTION_DOWN -> { feedback(v); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) } }; false }
         }
     }
 
@@ -240,51 +243,46 @@ class MainActivity : Activity() {
         if (justCalculated && s !in listOf("÷", "×", "−", "+", "^", "%")) { currentInput = ""; justCalculated = false }
         justCalculated = false
         when (s) {
-            "MC" -> { memoryValue = 0.0; savePreferences() }
-            "MR" -> { currentInput += formatResult(memoryValue) }
+            "MC" -> { memoryValue = 0.0; savePreferences() }; "MR" -> { currentInput += formatResult(memoryValue) }
             "M+" -> { try { memoryValue += evalMathExpression(if(currentInput.isEmpty()) "0" else currentInput); savePreferences(); justCalculated = true } catch(e:Exception){} }
             "M-" -> { try { memoryValue -= evalMathExpression(if(currentInput.isEmpty()) "0" else currentInput); savePreferences(); justCalculated = true } catch(e:Exception){} }
-            "AC" -> { currentInput = ""; expressionView?.text = "" }
-            "⌫" -> { if (currentInput.isNotEmpty()) currentInput = currentInput.dropLast(1) }
-            "sin", "cos", "tan", "log", "ln" -> { currentInput += "$s(" }
-            "√" -> { currentInput += "√(" }
-            "x²" -> { currentInput += "^2" }
-            "x³" -> { currentInput += "^3" }
-            "x^y" -> { currentInput += "^" }
-            "=" -> { 
-                if (currentInput.isNotEmpty()) {
-                    try { val res = evalMathExpression(currentInput); val formatted = formatResult(res); expressionView?.text = "$currentInput ="; historyList.add(0, "$currentInput = $formatted"); savePreferences(); currentInput = formatted; justCalculated = true } 
-                    catch (e: Exception) { currentInput = "Error"; justCalculated = true }
-                }
-            }
+            "AC" -> { currentInput = ""; expressionView?.text = "" }; "⌫" -> { if (currentInput.isNotEmpty()) currentInput = currentInput.dropLast(1) }
+            "sin", "cos", "tan", "log", "ln" -> { currentInput += "$s(" }; "√" -> { currentInput += "√(" }; "x²" -> { currentInput += "^2" }; "x³" -> { currentInput += "^3" }; "x^y" -> { currentInput += "^" }
+            "=" -> { if (currentInput.isNotEmpty()) { try { val res = evalMathExpression(currentInput); val formatted = formatResult(res); expressionView?.text = "$currentInput ="; historyList.add(0, "$currentInput = $formatted"); savePreferences(); currentInput = formatted; justCalculated = true } catch (e: Exception) { currentInput = "Error"; justCalculated = true } } }
             else -> currentInput += s
         }
-        memoryIndicator?.text = if (memoryValue != 0.0) "M = ${formatResult(memoryValue)}" else ""
-        currentView?.text = if(currentInput.isEmpty()) "0" else currentInput
+        memoryIndicator?.text = if (memoryValue != 0.0) "M = ${formatResult(memoryValue)}" else ""; currentView?.text = if(currentInput.isEmpty()) "0" else currentInput
     }
 
     private fun formatResult(res: Double): String { return try { if (res.isNaN() || res.isInfinite()) "Error" else BigDecimal.valueOf(res).setScale(calcPrecision, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() } catch (e: Exception) { "Error" } }
         private fun createInputBox(hintText: String): EditText {
-        return EditText(this).apply {
-            hint = hintText; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE)
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; textSize = 17f
-            setPadding(dp(18f), dp(18f), dp(18f), dp(18f))
-            background = GradientDrawable().apply { setColor(getCardColor()); cornerRadius = dp(16f).toFloat(); setStroke(dp(1.5f), getStrokeColor()) }
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14f) }
-        }
+        return EditText(this).apply { hint = hintText; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE); inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; textSize = 17f; setPadding(dp(18f), dp(18f), dp(18f), dp(18f)); background = GradientDrawable().apply { setColor(getCardColor()); cornerRadius = dp(16f).toFloat(); setStroke(dp(1.5f), getStrokeColor()) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14f) } }
     }
 
     private fun createActionBtn(textStr: String, isPrimary: Boolean = true, onClick: (View) -> Unit): TextView {
         val shape = GradientDrawable().apply { setColor(if (isPrimary) primaryColor else getCardColor()); cornerRadius = dp(buttonCornerStyle).toFloat(); if (!isPrimary) setStroke(dp(1.5f), getStrokeColor()) }
-        return TextView(this).apply {
-            text = textStr; gravity = Gravity.CENTER; setTextColor(if (isPrimary) Color.parseColor("#08090C") else Color.WHITE); textSize = 17f; typeface = Typeface.DEFAULT_BOLD
-            background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null)
-            setPadding(0, dp(16f), 0, dp(16f)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10f) }
-            isClickable = true; setOnClickListener { feedback(it); onClick(it) }
-        }
+        return TextView(this).apply { text = textStr; gravity = Gravity.CENTER; setTextColor(if (isPrimary) Color.parseColor("#08090C") else Color.WHITE); textSize = 17f; typeface = Typeface.DEFAULT_BOLD; background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); setPadding(0, dp(16f), 0, dp(16f)); layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10f) }; isClickable = true; setOnClickListener { feedback(it); onClick(it) } }
     }
 
     private fun createResultTextView(): TextView = TextView(this).apply { setTextColor(Color.WHITE); textSize = 20f; gravity = Gravity.CENTER; setPadding(0, dp(20f), 0, 0); setOnClickListener { if (text.isNotEmpty()) { feedback(it); copyToClipboard(text.toString()) } } }
+
+    private fun createCurrencyCalculator(): View {
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+        val amountInput = createInputBox("סכום להמרה (₪)"); val res = createResultTextView().apply { textSize = 18f }
+        val btn = createActionBtn("💱 משוך שערי מטבע בזמן אמת") {
+            val amount = amountInput.text.toString().toDoubleOrNull() ?: 1.0; res.text = "טוען נתונים מהאינטרנט..."
+            thread {
+                try {
+                    val response = URL("https://open.er-api.com/v6/latest/ILS").readText()
+                    val json = JSONObject(response); val rates = json.getJSONObject("rates")
+                    val usd = 1.0 / rates.getDouble("USD"); val eur = 1.0 / rates.getDouble("EUR"); val gbp = 1.0 / rates.getDouble("GBP")
+                    val time = json.getString("time_last_update_utc").substring(0, 16)
+                    Handler(Looper.getMainLooper()).post { res.text = "עבור ₪${formatCurrency(amount)}:\n\n🇺🇸 דולר (USD): $${formatCurrency(amount * rates.getDouble("USD"))}\n🇪🇺 אירו (EUR): €${formatCurrency(amount * rates.getDouble("EUR"))}\n🇬🇧 פאונד (GBP): £${formatCurrency(amount * rates.getDouble("GBP"))}\n\nשערי חליפין (₪1 שווה ל...):\nדולר: ₪${formatCurrency(usd)}\nאירו: ₪${formatCurrency(eur)}\nפאונד: ₪${formatCurrency(gbp)}\n\nעודכן ב: $time" }
+                } catch (e: Exception) { Handler(Looper.getMainLooper()).post { res.text = "שגיאה בחיבור לאינטרנט.\nודא שיש לך קליטה ונסה שוב." } }
+            }
+        }
+        root.addView(amountInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll
+    }
 
     private fun createVatCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
@@ -379,44 +377,25 @@ class MainActivity : Activity() {
     }
 
     private fun gcd(a: Long, b: Long): Long = if (b == 0L) a else gcd(b, a % b)
-
     private fun createFractionCalculator(): View {
         val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
         val n1 = createInputBox("מונה שבר ראשון"); val d1 = createInputBox("מכנה שבר ראשון"); val n2 = createInputBox("מונה שבר שני"); val d2 = createInputBox("מכנה שבר שני"); val res = createResultTextView()
         fun calc(op: String) { val num1=n1.text.toString().toLongOrNull(); val den1=d1.text.toString().toLongOrNull(); val num2=n2.text.toString().toLongOrNull(); val den2=d2.text.toString().toLongOrNull(); if(num1!=null&&den1!=null&&den1!=0L&&num2!=null&&den2!=null&&den2!=0L) { var rNum=0L; var rDen=1L; when(op){ "+"->{rNum=num1*den2+num2*den1; rDen=den1*den2}; "-"->{rNum=num1*den2-num2*den1; rDen=den1*den2}; "*"->{rNum=num1*num2; rDen=den1*den2}; "/"->{rNum=num1*den2; rDen=den1*num2} }; if(rDen==0L) { res.text="חלוקה באפס!"; return }; val g=Math.abs(gcd(rNum, rDen)); rNum/=g; rDen/=g; if(rDen<0) { rNum=-rNum; rDen=-rDen }; res.text=if(rDen==1L) "תוצאה מצומצמת: $rNum" else "תוצאה מצומצמת: $rNum / $rDen" } else res.text="נתונים לא תקינים (המכנה לא יכול להיות 0)" }
-        val btnAdd = createActionBtn("חיבור שברים (+)", true) { calc("+") }; val btnSub = createActionBtn("חיסור שברים (-)", false) { calc("-") }
-        val btnMul = createActionBtn("כפל שברים (×)", true) { calc("*") }; val btnDiv = createActionBtn("חילוק שברים (÷)", false) { calc("/") }
+        val btnAdd = createActionBtn("חיבור שברים (+)", true) { calc("+") }; val btnSub = createActionBtn("חיסור שברים (-)", false) { calc("-") }; val btnMul = createActionBtn("כפל שברים (×)", true) { calc("*") }; val btnDiv = createActionBtn("חילוק שברים (÷)", false) { calc("/") }
         root.addView(n1); root.addView(d1); root.addView(n2); root.addView(d2); root.addView(btnAdd); root.addView(btnSub); root.addView(btnMul); root.addView(btnDiv); root.addView(res); scroll.addView(root); return scroll
     }
         // =========================================================================
-    // הגדרות וערכות נושא (Themes) מוכנות + גלגל צבעים מלא
+    // הגדרות, ערכות נושא מובנות וגלגל הצבעים הפתוח 360°
     // =========================================================================
     private fun createSettingsPage(): View {
-        val scroll = ScrollView(this)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
-        
+        val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
         val titleThemes = TextView(this).apply { text = "🎨 ערכות נושא מוכנות (Themes)"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)) }
         val themeScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }
         val themeContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        
-        val presetThemes = listOf(
-            Triple("OLED", "#64B5F6", "#08090C"), Triple("Matrix", "#00E676", "#0A190F"),
-            Triple("Barbie", "#FF4081", "#2A0A18"), Triple("Ocean", "#00B4D8", "#0A1128"),
-            Triple("Sunset", "#FFB703", "#1A0F0A"), Triple("Dracula", "#BD93F9", "#282A36"),
-            Triple("Cyber", "#FF007F", "#120458")
-        )
-        
+        val presetThemes = listOf(Triple("OLED", "#64B5F6", "#08090C"), Triple("Matrix", "#00E676", "#0A190F"), Triple("Barbie", "#FF4081", "#2A0A18"), Triple("Ocean", "#00B4D8", "#0A1128"), Triple("Sunset", "#FFB703", "#1A0F0A"), Triple("Dracula", "#BD93F9", "#282A36"), Triple("Cyber", "#FF007F", "#120458"))
         for (theme in presetThemes) {
             val tName = theme.first; val tPri = Color.parseColor(theme.second); val tBg = Color.parseColor(theme.third)
-            val btn = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(12f), dp(12f), dp(12f), dp(12f))
-                background = GradientDrawable().apply { setColor(tBg); cornerRadius = dp(16f).toFloat(); setStroke(dp(2f), tPri) }
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6f), dp(6f), dp(6f), dp(6f)) }
-                
-                val tLabel = TextView(this@MainActivity).apply { text = tName; setTextColor(tPri); textSize = 14f; typeface = Typeface.DEFAULT_BOLD }
-                addView(tLabel)
-                setOnClickListener { feedback(it); primaryColor = tPri; bgColor = tBg; savePreferences(); applyTheme() }
-            }
+            val btn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(12f), dp(12f), dp(12f), dp(12f)); background = GradientDrawable().apply { setColor(tBg); cornerRadius = dp(16f).toFloat(); setStroke(dp(2f), tPri) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6f), dp(6f), dp(6f), dp(6f)) }; addView(TextView(this@MainActivity).apply { text = tName; setTextColor(tPri); textSize = 14f; typeface = Typeface.DEFAULT_BOLD }); setOnClickListener { feedback(it); primaryColor = tPri; bgColor = tBg; savePreferences(); applyTheme() } }
             themeContainer.addView(btn)
         }
         themeScroll.addView(themeContainer)
@@ -426,20 +405,11 @@ class MainActivity : Activity() {
         lateinit var btnEditPrimary: TextView; lateinit var btnEditBg: TextView; lateinit var pickerContainer: FrameLayout
 
         fun refreshTargetButtons() {
-            btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else getCardColor()); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else getStrokeColor()) }
-            btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE)
-            btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else getCardColor()); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else getStrokeColor()) }
-            btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE)
+            btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else getCardColor()); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else getStrokeColor()) }; btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE)
+            btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else getCardColor()); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else getStrokeColor()) }; btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE)
         }
 
-        fun loadColorPicker() {
-            refreshTargetButtons(); pickerContainer.removeAllViews()
-            pickerContainer.addView(createFullColorWheelPicker(if (editingTarget == 0) primaryColor else bgColor) { newColor ->
-                if (editingTarget == 0) primaryColor = newColor else bgColor = newColor
-                savePreferences(); window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor()); updateDrawerSelection(); refreshTargetButtons()
-            })
-        }
-
+        fun loadColorPicker() { refreshTargetButtons(); pickerContainer.removeAllViews(); pickerContainer.addView(createFullColorWheelPicker(if (editingTarget == 0) primaryColor else bgColor) { newColor -> if (editingTarget == 0) primaryColor = newColor else bgColor = newColor; savePreferences(); window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent.setBackgroundColor(bgColor); drawerMenu.setBackgroundColor(getCardColor()); updateDrawerSelection(); refreshTargetButtons() }) }
         btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
         btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
         targetRow.addView(btnEditPrimary); targetRow.addView(btnEditBg)
