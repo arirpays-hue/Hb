@@ -12,7 +12,7 @@ var activeMediaPlayer: MediaPlayer? = null // שומר על הנגן בחיים
 
 fun MainActivity.checkEasterEggs(input: String): Boolean {
     when (input) {
-        // --- הביצים הקיימות שלך (סאונד והבהובים) ---
+        // --- הביצים הקיימות (סאונד והבהובים) ---
         "123456789" -> {
             justCalculated = true
             val resId = resources.getIdentifier("cheer", "raw", packageName)
@@ -106,7 +106,7 @@ fun MainActivity.checkEasterEggs(input: String): Boolean {
             return true
         }
         
-        // 😈 המספר של השטן
+        // 😈 המספר של השטן (כולל הצחוק המרושע!)
         "666" -> {
             primaryColor = Color.parseColor("#FF0000") // אדום
             savePreferences()
@@ -116,6 +116,16 @@ fun MainActivity.checkEasterEggs(input: String): Boolean {
             currentInput = "Not Today 😈"
             currentView?.text = currentInput
             justCalculated = true
+            
+            // הפעלת הצחוק המרושע
+            val resId = resources.getIdentifier("evil_laugh", "raw", packageName)
+            if (resId != 0) {
+                activeMediaPlayer?.release()
+                activeMediaPlayer = MediaPlayer.create(this, resId)
+                activeMediaPlayer?.start()
+            } else {
+                Toast.makeText(this, "⚠️ קובץ evil_laugh.mp3 חסר בתיקיית raw!", Toast.LENGTH_SHORT).show()
+            }
             
             if (useHaptic) mainContent?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             return true
