@@ -56,9 +56,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     
     private lateinit var soundPool: SoundPool
     var soundIds = IntArray(13)
-    var acSoundId = 0 // משתנה חדש לשמירת הצליל של כפתור המחיקה
+    var acSoundId = 0
 
-    var useHaptic = true; var useSound = true; var keepScreenOn = false; var soundType = 0
+    // משתנה חדש לאנימציות
+    var useHaptic = true; var useSound = true; var useAnimations = true; var keepScreenOn = false; var soundType = 0
     var calcPrecision = 8; var buttonCornerStyle = 24f
     var primaryColor = Color.parseColor("#64B5F6"); var bgColor = Color.parseColor("#08090C")
     var memoryValue = 0.0; var currentTabIndex = 0
@@ -96,7 +97,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             if (rId != 0) soundIds[i] = soundPool.load(this, rId, 1)
         }
         
-        // טעינת צליל ה-AC במיוחד
         val acResId = resources.getIdentifier("ac_sound", "raw", packageName)
         if (acResId != 0) acSoundId = soundPool.load(this, acResId, 1)
 
@@ -149,7 +149,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun setupShortcuts() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) { val sm = getSystemService(ShortcutManager::class.java); val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build(); val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מדעית").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build(); sm.dynamicShortcuts = listOf(s1, s2) } }
 
     private fun loadPreferences() {
-        useHaptic = prefs?.getBoolean("useHaptic", true) ?: true; useSound = prefs?.getBoolean("useSound", true) ?: true; keepScreenOn = prefs?.getBoolean("keepScreenOn", false) ?: false; soundType = prefs?.getInt("soundType", 0) ?: 0
+        useHaptic = prefs?.getBoolean("useHaptic", true) ?: true
+        useSound = prefs?.getBoolean("useSound", true) ?: true
+        useAnimations = prefs?.getBoolean("useAnimations", true) ?: true // שמירת העדפת האנימציות
+        keepScreenOn = prefs?.getBoolean("keepScreenOn", false) ?: false; soundType = prefs?.getInt("soundType", 0) ?: 0
         calcPrecision = prefs?.getInt("calcPrecision", 8) ?: 8; buttonCornerStyle = prefs?.getFloat("buttonCornerStyle", 24f) ?: 24f
         primaryColor = prefs?.getInt("primaryColor", Color.parseColor("#64B5F6")) ?: Color.parseColor("#64B5F6"); bgColor = prefs?.getInt("bgColor", Color.parseColor("#08090C")) ?: Color.parseColor("#08090C")
         memoryValue = Double.fromBits(prefs?.getLong("memoryValue", 0L) ?: 0L); val savedHist = prefs?.getString("history", "") ?: ""
@@ -160,7 +163,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         historyList.clear(); if (savedHist.isNotEmpty()) historyList.addAll(savedHist.split("||")); updateKeepScreenOn()
     }
 
-    fun savePreferences() { prefs?.edit()?.putBoolean("useHaptic", useHaptic)?.putBoolean("useSound", useSound)?.putBoolean("keepScreenOn", keepScreenOn)?.putInt("soundType", soundType)?.putInt("calcPrecision", calcPrecision)?.putFloat("buttonCornerStyle", buttonCornerStyle)?.putInt("primaryColor", primaryColor)?.putInt("bgColor", bgColor)?.putLong("memoryValue", memoryValue.toRawBits())?.putString("fromCurrency", fromCurrency)?.putString("toCurrency", toCurrency)?.putString("fromDist", fromDist)?.putString("toDist", toDist)?.putString("fromWeight", fromWeight)?.putString("toWeight", toWeight)?.putString("fromTemp", fromTemp)?.putString("toTemp", toTemp)?.putString("history", historyList.take(30).joinToString("||"))?.apply() }
+    fun savePreferences() { prefs?.edit()?.putBoolean("useHaptic", useHaptic)?.putBoolean("useSound", useSound)?.putBoolean("useAnimations", useAnimations)?.putBoolean("keepScreenOn", keepScreenOn)?.putInt("soundType", soundType)?.putInt("calcPrecision", calcPrecision)?.putFloat("buttonCornerStyle", buttonCornerStyle)?.putInt("primaryColor", primaryColor)?.putInt("bgColor", bgColor)?.putLong("memoryValue", memoryValue.toRawBits())?.putString("fromCurrency", fromCurrency)?.putString("toCurrency", toCurrency)?.putString("fromDist", fromDist)?.putString("toDist", toDist)?.putString("fromWeight", fromWeight)?.putString("toWeight", toWeight)?.putString("fromTemp", fromTemp)?.putString("toTemp", toTemp)?.putString("history", historyList.take(30).joinToString("||"))?.apply() }
     fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
 
     fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent?.setBackgroundColor(bgColor); drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f)); updateDrawerSelection(); switchTab(currentTabIndex) }
@@ -275,7 +278,27 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val shape = GradientDrawable().apply { this.shape = GradientDrawable.RECTANGLE; cornerRadius = dp(buttonCornerStyle).toFloat(); setColor(defaultBg); setStroke(dp(1.5f), strokeColor) }
         return TextView(this).apply {
             text = symbol; setTextColor(textColor); setAutoSizeTextTypeUniformWithConfiguration(10, if(isSmall) 22 else 28, 2, TypedValue.COMPLEX_UNIT_SP); typeface = if (symbol == "=" || isOp || isMem) Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER; background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); isClickable = true
-            setOnTouchListener { v, e -> when (e.actionMasked) { MotionEvent.ACTION_DOWN -> { feedback(v, symbol); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) } }; false }
+            setOnTouchListener { v, e -> 
+                when (e.actionMasked) { 
+                    MotionEvent.ACTION_DOWN -> { 
+                        feedback(v, symbol)
+                        if (useAnimations) {
+                            v.animate().scaleX(0.82f).scaleY(0.82f).setDuration(70).setInterpolator(android.view.animation.DecelerateInterpolator()).start() 
+                        } else {
+                            v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start()
+                        }
+                    } 
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { 
+                        if (useAnimations) {
+                            v.animate().scaleX(1f).scaleY(1f).setDuration(400).setInterpolator(android.view.animation.OvershootInterpolator(2.5f)).start() 
+                        } else {
+                            v.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                        }
+                        if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) 
+                    } 
+                } 
+                false 
+            }
         }
     }
 
@@ -306,7 +329,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             else -> currentInput += s
         }
         memoryIndicator?.text = if (memoryValue != 0.0) "M = ${Utils.formatResult(memoryValue, calcPrecision)}" else ""
-        currentView?.text = if (currentInput.isEmpty()) "0" else currentInput
+        
+        val newText = if (currentInput.isEmpty()) "0" else currentInput
+        if (currentView?.text != newText) {
+            if (useAnimations) {
+                currentView?.alpha = 0.3f
+                currentView?.scaleX = 0.90f
+                currentView?.scaleY = 0.90f
+                currentView?.text = newText
+                currentView?.animate()?.alpha(1f)?.scaleX(1f)?.scaleY(1f)?.setDuration(250)?.setInterpolator(android.view.animation.OvershootInterpolator(1.2f))?.start()
+            } else {
+                currentView?.text = newText
+            }
+        }
     }
 
     fun createInputBox(hintText: String): EditText { return EditText(this).apply { hint = hintText; setHintTextColor(Color.parseColor("#5C657A")); setTextColor(Color.WHITE); inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED; textSize = 17f; setPadding(dp(18f), dp(18f), dp(18f), dp(18f)); background = GradientDrawable().apply { setColor(Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(16f).toFloat(); setStroke(dp(1.5f), Utils.lightenColor(bgColor, 0.15f)) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14f) } } }
@@ -315,4 +350,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() { tts?.shutdown(); soundPool.release(); super.onDestroy() }
     fun dp(value: Float): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics).toInt()
+    
+    fun shakeScreen() {
+        val animator = android.animation.ObjectAnimator.ofFloat(mainContent, "translationX", 0f, 35f, -35f, 25f, -25f, 15f, -15f, 6f, -6f, 0f)
+        animator.duration = 600
+        animator.start()
+    }
 }
