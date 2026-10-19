@@ -5,44 +5,228 @@ import android.app.DatePickerDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Handler
-import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import org.json.JSONObject
-import java.net.URL
-import java.util.Calendar
-import kotlin.concurrent.thread
+import android.widget.*
+import java.util.*
 import kotlin.math.pow
+import kotlin.math.sqrt
 
-fun MainActivity.createCurrencyCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountInput = createInputBox("הזן סכום להמרה"); val currencyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }; val fromBtn = createActionBtn("מקור: $fromCurrency", false) { showItemPicker("בחר מטבע מקור", allCurrencies) { sel -> fromCurrency = sel.split(" ")[0].trim(); savePreferences(); (it as TextView).text = "מקור: $fromCurrency" } }; fromBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(8f) }; val arrow = TextView(this).apply { text = "➡"; setTextColor(Color.WHITE); textSize = 24f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(40f), LinearLayout.LayoutParams.WRAP_CONTENT) }; val toBtn = createActionBtn("יעד: $toCurrency", false) { showItemPicker("בחר מטבע יעד", allCurrencies) { sel -> toCurrency = sel.split(" ")[0].trim(); savePreferences(); (it as TextView).text = "יעד: $toCurrency" } }; toBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8f) }; currencyRow.addView(fromBtn); currencyRow.addView(arrow); currencyRow.addView(toBtn); val res = createResultTextView().apply { textSize = 18f }; val btn = createActionBtn("💱 המר מטבע עכשיו (לייב)") { val amount = amountInput.text.toString().toDoubleOrNull() ?: 1.0; res.text = "מתחבר לבורסה ומוריד שערי מטבע..."; thread { try { val response = URL("https://open.er-api.com/v6/latest/$fromCurrency").readText(); val json = JSONObject(response); val rates = json.getJSONObject("rates"); if (rates.has(toCurrency)) { val rate = rates.getDouble(toCurrency); val total = amount * rate; val time = json.getString("time_last_update_utc").substring(0, 16); Handler(Looper.getMainLooper()).post { res.text = "${Utils.formatCurrency(amount)} $fromCurrency שווים ל:\n\n${Utils.formatCurrency(total)} $toCurrency\n\nשער חליפין: 1 $fromCurrency = ${Utils.formatCurrency(rate)} $toCurrency\n\nעודכן ב: $time" } } else { Handler(Looper.getMainLooper()).post { res.text = "המטבע $toCurrency לא נמצא במאגר כרגע." } } } catch (e: Exception) { Handler(Looper.getMainLooper()).post { res.text = "שגיאה בחיבור לאינטרנט.\nבדוק את הקליטה ונסה שוב." } } } }; root.addView(amountInput); root.addView(currencyRow); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createDistanceCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountInput = createInputBox("הזן מרחק להמרה"); val distUnits = listOf("קילומטר (km)", "מטר (m)", "סנטימטר (cm)", "מילימטר (mm)", "מייל (mi)", "יארד (yd)", "רגל (ft)", "אינץ' (in)"); val distMap = mapOf("קילומטר (km)" to 1000.0, "מטר (m)" to 1.0, "סנטימטר (cm)" to 0.01, "מילימטר (mm)" to 0.001, "מייל (mi)" to 1609.344, "יארד (yd)" to 0.9144, "רגל (ft)" to 0.3048, "אינץ' (in)" to 0.0254); val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }; val fromBtn = createActionBtn(fromDist, false) { showItemPicker("בחר יחידת מקור", distUnits) { sel -> fromDist = sel; savePreferences(); (it as TextView).text = sel } }; fromBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(8f) }; val arrow = TextView(this).apply { text = "➡"; setTextColor(Color.WHITE); textSize = 24f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(40f), LinearLayout.LayoutParams.WRAP_CONTENT) }; val toBtn = createActionBtn(toDist, false) { showItemPicker("בחר יחידת יעד", distUnits) { sel -> toDist = sel; savePreferences(); (it as TextView).text = sel } }; toBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8f) }; row.addView(fromBtn); row.addView(arrow); row.addView(toBtn); val res = createResultTextView().apply { textSize = 22f }; val btn = createActionBtn("חשב המרה") { val amt = amountInput.text.toString().toDoubleOrNull(); if (amt != null) { val meters = amt * (distMap[fromDist] ?: 1.0); val finalAmt = meters / (distMap[toDist] ?: 1.0); res.text = "${Utils.formatCurrency(amt)} $fromDist\n=\n${Utils.formatCurrency(finalAmt)} $toDist" } else res.text = "נא להזין נתונים תקינים." }; root.addView(amountInput); root.addView(row); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createWeightCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountInput = createInputBox("הזן משקל להמרה"); val weightUnits = listOf("קילוגרם (kg)", "גרם (g)", "מיליגרם (mg)", "טון מטרי (t)", "פאונד (lbs)", "אונקיה (oz)"); val weightMap = mapOf("קילוגרם (kg)" to 1000.0, "גרם (g)" to 1.0, "מיליגרם (mg)" to 0.001, "טון מטרי (t)" to 1000000.0, "פאונד (lbs)" to 453.59237, "אונקיה (oz)" to 28.34952); val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }; val fromBtn = createActionBtn(fromWeight, false) { showItemPicker("בחר יחידת מקור", weightUnits) { sel -> fromWeight = sel; savePreferences(); (it as TextView).text = sel } }; fromBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(8f) }; val arrow = TextView(this).apply { text = "➡"; setTextColor(Color.WHITE); textSize = 24f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(40f), LinearLayout.LayoutParams.WRAP_CONTENT) }; val toBtn = createActionBtn(toWeight, false) { showItemPicker("בחר יחידת יעד", weightUnits) { sel -> toWeight = sel; savePreferences(); (it as TextView).text = sel } }; toBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8f) }; row.addView(fromBtn); row.addView(arrow); row.addView(toBtn); val res = createResultTextView().apply { textSize = 22f }; val btn = createActionBtn("חשב המרה") { val amt = amountInput.text.toString().toDoubleOrNull(); if (amt != null) { val grams = amt * (weightMap[fromWeight] ?: 1.0); val finalAmt = grams / (weightMap[toWeight] ?: 1.0); res.text = "${Utils.formatCurrency(amt)} $fromWeight\n=\n${Utils.formatCurrency(finalAmt)} $toWeight" } else res.text = "נא להזין נתונים תקינים." }; root.addView(amountInput); root.addView(row); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createTempCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountInput = createInputBox("הזן טמפרטורה להמרה"); val tempUnits = listOf("צלזיוס (°C)", "פרנהייט (°F)", "קלווין (K)"); val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }; val fromBtn = createActionBtn(fromTemp, false) { showItemPicker("בחר יחידת מקור", tempUnits) { sel -> fromTemp = sel; savePreferences(); (it as TextView).text = sel } }; fromBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(8f) }; val arrow = TextView(this).apply { text = "➡"; setTextColor(Color.WHITE); textSize = 24f; gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(40f), LinearLayout.LayoutParams.WRAP_CONTENT) }; val toBtn = createActionBtn(toTemp, false) { showItemPicker("בחר יחידת יעד", tempUnits) { sel -> toTemp = sel; savePreferences(); (it as TextView).text = sel } }; toBtn.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(8f) }; row.addView(fromBtn); row.addView(arrow); row.addView(toBtn); val res = createResultTextView().apply { textSize = 22f }; val btn = createActionBtn("חשב המרה") { val amt = amountInput.text.toString().toDoubleOrNull(); if (amt != null) { var c = amt; if (fromTemp == "פרנהייט (°F)") c = (amt - 32) * 5/9 else if (fromTemp == "קלווין (K)") c = amt - 273.15; val finalAmt = when(toTemp) { "פרנהייט (°F)" -> c * 9/5 + 32; "קלווין (K)" -> c + 273.15; else -> c }; res.text = "${Utils.formatCurrency(amt)} $fromTemp\n=\n${Utils.formatCurrency(finalAmt)} $toTemp" } else res.text = "נא להזין נתונים תקינים." }; root.addView(amountInput); root.addView(row); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createVatCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountInput = createInputBox("סכום (₪)"); val vatInput = createInputBox("אחוז מע״מ (ברירת מחדל 18%)"); val res = createResultTextView(); val addBtn = createActionBtn("הוסף מע״מ לסכום (+)") { val a = amountInput.text.toString().toDoubleOrNull(); val v = vatInput.text.toString().toDoubleOrNull() ?: 18.0; if (a != null) { val vat = a * (v / 100); res.text = "סכום מע״מ: ₪${Utils.formatCurrency(vat)}\nסה״כ כולל מע״מ: ₪${Utils.formatCurrency(a + vat)}" } }; val removeBtn = createActionBtn("חלץ מע״מ מסכום כולל (-)", false) { val a = amountInput.text.toString().toDoubleOrNull(); val v = vatInput.text.toString().toDoubleOrNull() ?: 18.0; if (a != null) { val before = a / (1 + (v / 100)); res.text = "לפני מע״מ: ₪${Utils.formatCurrency(before)}\nרכיב המע״מ: ₪${Utils.formatCurrency(a - before)}" } }; root.addView(amountInput); root.addView(vatInput); root.addView(addBtn); root.addView(removeBtn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createLoanCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val amountIn = createInputBox("סכום ההלוואה (₪)"); val rateIn = createInputBox("ריבית שנתית (%)"); val monthsIn = createInputBox("תקופה בחודשים"); val res = createResultTextView(); val btn = createActionBtn("חשב החזר הלוואה") { val p = amountIn.text.toString().toDoubleOrNull(); val rYear = rateIn.text.toString().toDoubleOrNull(); val n = monthsIn.text.toString().toIntOrNull(); if (p != null && rYear != null && n != null && n > 0) { val r = (rYear / 100.0) / 12.0; val monthly = if (r == 0.0) p / n else p * (r * (1 + r).pow(n)) / ((1 + r).pow(n) - 1); val total = monthly * n; res.text = "החזר חודשי: ₪${Utils.formatCurrency(monthly)}\nסה״כ תשלומים: ₪${Utils.formatCurrency(total)}\nסה״כ ריבית: ₪${Utils.formatCurrency(total - p)}" } else res.text = "נא להזין נתונים תקינים." }; root.addView(amountIn); root.addView(rateIn); root.addView(monthsIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createProgrammerCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val numInput = createInputBox("מספר שלם עשרוני (DEC)"); val res = createResultTextView(); val btn = createActionBtn("המר בסיסי ספירה") { val n = numInput.text.toString().toLongOrNull(); if (n != null) res.text = "בינארי (BIN):\n${java.lang.Long.toBinaryString(n)}\n\nהקסדצימלי (HEX):\n${java.lang.Long.toHexString(n).uppercase()}" else res.text = "נא להזין מספר שלם." }; root.addView(numInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createPercentageCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val pctInput = createInputBox("אחוז (למשל 15)"); val totalInput = createInputBox("מתוך סכום (למשל 200)"); val res = createResultTextView(); val btn = createActionBtn("חשב אחוז") { val pct = pctInput.text.toString().toDoubleOrNull(); val total = totalInput.text.toString().toDoubleOrNull(); if (pct != null && total != null) res.text = "$pct% מתוך $total הם:\n\n${Utils.formatCurrency(total * (pct / 100.0))}" }; root.addView(pctInput); root.addView(totalInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createDiscountCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val priceInput = createInputBox("מחיר מקורי (₪)"); val discountInput = createInputBox("אחוז הנחה (%)"); val res = createResultTextView(); val btn = createActionBtn("חשב מחיר סופי") { val p = priceInput.text.toString().toDoubleOrNull(); val d = discountInput.text.toString().toDoubleOrNull(); if (p != null && d != null) { val s = p * (d / 100); res.text = "מחיר סופי: ₪${Utils.formatCurrency(p - s)}\nחסכת: ₪${Utils.formatCurrency(s)}" } }; root.addView(priceInput); root.addView(discountInput); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createTipCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val billIn = createInputBox("סכום החשבון (₪)"); val tipIn = createInputBox("אחוז טיפ (ברירת מחדל 10%)"); val pplIn = createInputBox("מספר סועדים"); val res = createResultTextView(); val btn = createActionBtn("חשב טיפ") { val b = billIn.text.toString().toDoubleOrNull(); val t = tipIn.text.toString().toDoubleOrNull() ?: 10.0; val p = pplIn.text.toString().toIntOrNull() ?: 1; if (b != null && p > 0) { val tip = b * (t / 100); val tot = b + tip; res.text = "טיפ: ₪${Utils.formatCurrency(tip)}\nסה״כ: ₪${Utils.formatCurrency(tot)}\nלכל סועד: ₪${Utils.formatCurrency(tot / p)}" } }; root.addView(billIn); root.addView(tipIn); root.addView(pplIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createBMICalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val wIn = createInputBox("משקל (ק״ג)"); val hIn = createInputBox("גובה (ס״מ)"); val res = createResultTextView(); val btn = createActionBtn("חשב מדד BMI") { val w = wIn.text.toString().toDoubleOrNull(); val h = hIn.text.toString().toDoubleOrNull(); if (w != null && h != null && h > 0) { val bmi = w / ((h / 100) * (h / 100)); val st = when { bmi < 18.5 -> "תת משקל 🔹"; bmi < 25 -> "משקל תקין ✅"; bmi < 30 -> "עודף משקל 🔸"; else -> "השמנת יתר ⚠️" }; res.text = String.format("ה-BMI שלך: %.1f\n%s", bmi, st) } }; root.addView(wIn); root.addView(hIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createAgeCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val res = createResultTextView(); val btn = createActionBtn("בחר תאריך לידה 📅") { val c = Calendar.getInstance(); DatePickerDialog(this, { _, y, m, d -> val t = Calendar.getInstance(); var ay = t.get(Calendar.YEAR) - y; var am = t.get(Calendar.MONTH) - m; var ad = t.get(Calendar.DAY_OF_MONTH) - d; if (ad < 0) { am--; ad += t.getActualMaximum(Calendar.DAY_OF_MONTH) }; if (am < 0) { ay--; am += 12 }; res.text = if (ay < 0) "תאריך עתידי!" else "הגיל שלך:\n$ay שנים, $am חודשים ו-$ad ימים" }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show() }; root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createBmrCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val wIn = createInputBox("משקל (ק״ג)"); val hIn = createInputBox("גובה (ס״מ)"); val aIn = createInputBox("גיל (שנים)"); val res = createResultTextView(); val btnMale = createActionBtn("חשב עבור גבר 👨", true) { val w=wIn.text.toString().toDoubleOrNull(); val h=hIn.text.toString().toDoubleOrNull(); val a=aIn.text.toString().toDoubleOrNull(); if(w!=null&&h!=null&&a!=null) { val bmr=10*w + 6.25*h - 5*a + 5; res.text="BMR (בסיסי): ${Utils.formatCurrency(bmr)} קלוריות\nפעילות קלה: ${Utils.formatCurrency(bmr*1.2)}\nפעילות רבה: ${Utils.formatCurrency(bmr*1.55)}" } else res.text="נא להזין נתונים תקינים." }; val btnFemale = createActionBtn("חשב עבור אישה 👩", false) { val w=wIn.text.toString().toDoubleOrNull(); val h=hIn.text.toString().toDoubleOrNull(); val a=aIn.text.toString().toDoubleOrNull(); if(w!=null&&h!=null&&a!=null) { val bmr=10*w + 6.25*h - 5*a - 161; res.text="BMR (בסיסי): ${Utils.formatCurrency(bmr)} קלוריות\nפעילות קלה: ${Utils.formatCurrency(bmr*1.2)}\nפעילות רבה: ${Utils.formatCurrency(bmr*1.55)}" } else res.text="נא להזין נתונים תקינים." }; root.addView(wIn); root.addView(hIn); root.addView(aIn); root.addView(btnMale); root.addView(btnFemale); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createQuadraticCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val aIn = createInputBox("מקדם A (לדוגמה 1)"); val bIn = createInputBox("מקדם B (לדוגמה -5)"); val cIn = createInputBox("מקדם C (לדוגמה 6)"); val res = createResultTextView(); val btn = createActionBtn("פתור משוואה ריבועית") { val a=aIn.text.toString().toDoubleOrNull(); val b=bIn.text.toString().toDoubleOrNull(); val c=cIn.text.toString().toDoubleOrNull(); if(a!=null&&b!=null&&c!=null) { if(a==0.0) { res.text="משוואה ממעלה ראשונה." } else { val delta=b*b - 4*a*c; if(delta>0) { val x1=(-b+Math.sqrt(delta))/(2*a); val x2=(-b-Math.sqrt(delta))/(2*a); res.text="שני פתרונות:\nX1 = ${Utils.formatCurrency(x1)}\nX2 = ${Utils.formatCurrency(x2)}" } else if(delta==0.0) { val x=-b/(2*a); res.text="פתרון יחיד:\nX = ${Utils.formatCurrency(x)}" } else { res.text="אין פתרונות ממשיים (Δ < 0)" } } } else res.text="נא להזין נתונים תקינים." }; root.addView(aIn); root.addView(bIn); root.addView(cIn); root.addView(btn); root.addView(res); scroll.addView(root); return scroll }
-fun MainActivity.createFractionCalculator(): View { val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }; val n1 = createInputBox("מונה שבר ראשון"); val d1 = createInputBox("מכנה שבר ראשון"); val n2 = createInputBox("מונה שבר שני"); val d2 = createInputBox("מכנה שבר שני"); val res = createResultTextView(); fun calc(op: String) { val num1=n1.text.toString().toLongOrNull(); val den1=d1.text.toString().toLongOrNull(); val num2=n2.text.toString().toLongOrNull(); val den2=d2.text.toString().toLongOrNull(); if(num1!=null&&den1!=null&&den1!=0L&&num2!=null&&den2!=null&&den2!=0L) { var rNum=0L; var rDen=1L; when(op){ "+"->{rNum=num1*den2+num2*den1; rDen=den1*den2}; "-"->{rNum=num1*den2-num2*den1; rDen=den1*den2}; "*"->{rNum=num1*num2; rDen=den1*den2}; "/"->{rNum=num1*den2; rDen=den1*num2} }; if(rDen==0L) { res.text="חלוקה באפס!"; return }; val g=Math.abs(Utils.gcd(rNum, rDen)); rNum/=g; rDen/=g; if(rDen<0) { rNum=-rNum; rDen=-rDen }; res.text=if(rDen==1L) "תוצאה מצומצמת: $rNum" else "תוצאה מצומצמת: $rNum / $rDen" } else res.text="נתונים לא תקינים" }; val btnAdd = createActionBtn("חיבור שברים (+)", true) { calc("+") }; val btnSub = createActionBtn("חיסור שברים (-)", false) { calc("-") }; val btnMul = createActionBtn("כפל שברים (×)", true) { calc("*") }; val btnDiv = createActionBtn("חילוק שברים (÷)", false) { calc("/") }; root.addView(n1); root.addView(d1); root.addView(n2); root.addView(d2); root.addView(btnAdd); root.addView(btnSub); root.addView(btnMul); root.addView(btnDiv); root.addView(res); scroll.addView(root); return scroll }
+// --- פונקציות עזר לבחירת צבעים ---
+fun createColorWheelPicker(context: android.content.Context, initialColor: Int, onColorSelected: (Int) -> Unit): View {
+    val container = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, 20, 0, 20) }
+    val colorPreview = View(context).apply { layoutParams = LinearLayout.LayoutParams(150, 150).apply { bottomMargin = 30 }; background = GradientDrawable().apply { cornerRadius = 75f; setColor(initialColor); setStroke(3, Color.WHITE) } }
+    val hsv = FloatArray(3); Color.colorToHSV(initialColor, hsv)
+    fun updateColor() { val c = Color.HSVToColor(hsv); colorPreview.background = GradientDrawable().apply { cornerRadius = 75f; setColor(c); setStroke(3, Color.WHITE) }; onColorSelected(c) }
+    fun createSlider(label: String, max: Int, initial: Int, onUpdate: (Int) -> Unit): View {
+        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 20 }; gravity = Gravity.CENTER_VERTICAL }
+        val tv = TextView(context).apply { text = label; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(100, LinearLayout.LayoutParams.WRAP_CONTENT) }
+        val sb = SeekBar(context).apply { this.max = max; progress = initial; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f); setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { onUpdate(progress); updateColor() }; override fun onStartTrackingTouch(seekBar: SeekBar?) {}; override fun onStopTrackingTouch(seekBar: SeekBar?) {} }) }
+        row.addView(tv); row.addView(sb); return row
+    }
+    container.addView(colorPreview)
+    container.addView(createSlider("גוון", 360, hsv[0].toInt()) { hsv[0] = it.toFloat() })
+    container.addView(createSlider("רוויה", 100, (hsv[1] * 100).toInt()) { hsv[1] = it / 100f })
+    container.addView(createSlider("בהירות", 100, (hsv[2] * 100).toInt()) { hsv[2] = it / 100f })
+    return container
+}
+
+// --- מחשבונים משניים ---
+fun MainActivity.createVatCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val amountInput = createInputBox("הכנס סכום (₪)")
+    val vatInput = createInputBox("אחוז מע״מ (ברירת מחדל 17%)").apply { setText("17") }
+    val resText = createResultTextView()
+    val btnAdd = createActionBtn("הוסף מע״מ לסכום") { val a = amountInput.text.toString().toDoubleOrNull() ?: 0.0; val v = vatInput.text.toString().toDoubleOrNull() ?: 17.0; val res = a * (1 + v / 100); resText.text = "סך הכל כולל מע״מ:\n${Utils.formatResult(res, 2)} ₪" }
+    val btnSub = createActionBtn("חלץ מע״מ מהסכום", false) { val a = amountInput.text.toString().toDoubleOrNull() ?: 0.0; val v = vatInput.text.toString().toDoubleOrNull() ?: 17.0; val res = a / (1 + v / 100); val vatAmount = a - res; resText.text = "סכום לפני מע״מ: ${Utils.formatResult(res, 2)} ₪\nסכום המע״מ: ${Utils.formatResult(vatAmount, 2)} ₪" }
+    root.addView(amountInput); root.addView(vatInput); root.addView(btnAdd); root.addView(btnSub); root.addView(resText); return root
+}
+
+fun MainActivity.createLoanCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val amountInput = createInputBox("סכום ההלוואה (₪)")
+    val monthsInput = createInputBox("תקופה (בחודשים)")
+    val interestInput = createInputBox("ריבית שנתית (%)")
+    val resText = createResultTextView()
+    val btn = createActionBtn("חשב החזר חודשי") {
+        val p = amountInput.text.toString().toDoubleOrNull() ?: 0.0; val n = monthsInput.text.toString().toDoubleOrNull() ?: 0.0; val r = (interestInput.text.toString().toDoubleOrNull() ?: 0.0) / 100 / 12
+        if (p > 0 && n > 0) { val res = if (r == 0.0) p / n else p * (r * (1 + r).pow(n)) / ((1 + r).pow(n) - 1); val total = res * n; resText.text = "החזר חודשי: ${Utils.formatResult(res, 2)} ₪\nסך הכל החזר: ${Utils.formatResult(total, 2)} ₪" }
+    }
+    root.addView(amountInput); root.addView(monthsInput); root.addView(interestInput); root.addView(btn); root.addView(resText); return root
+}
+
+fun MainActivity.createDistanceCalculator(): View { return createConverterLayout("מרחק", listOf("קילומטר (km)", "מייל (mi)", "מטר (m)", "סנטימטר (cm)", "רגל (ft)", "אינץ' (in)"), fromDist, toDist, { fromDist = it }, { toDist = it }) { v, f, t ->
+    val inMeters = when (f) { "קילומטר (km)" -> v * 1000; "מייל (mi)" -> v * 1609.34; "סנטימטר (cm)" -> v / 100; "רגל (ft)" -> v * 0.3048; "אינץ' (in)" -> v * 0.0254; else -> v }
+    when (t) { "קילומטר (km)" -> inMeters / 1000; "מייל (mi)" -> inMeters / 1609.34; "סנטימטר (cm)" -> inMeters * 100; "רגל (ft)" -> inMeters / 0.3048; "אינץ' (in)" -> inMeters / 0.0254; else -> inMeters }
+} }
+
+fun MainActivity.createWeightCalculator(): View { return createConverterLayout("משקל", listOf("קילוגרם (kg)", "פאונד (lbs)", "גרם (g)", "אונקיה (oz)", "טון (t)"), fromWeight, toWeight, { fromWeight = it }, { toWeight = it }) { v, f, t ->
+    val inKg = when (f) { "פאונד (lbs)" -> v * 0.453592; "גרם (g)" -> v / 1000; "אונקיה (oz)" -> v * 0.0283495; "טון (t)" -> v * 1000; else -> v }
+    when (t) { "פאונד (lbs)" -> inKg / 0.453592; "גרם (g)" -> inKg * 1000; "אונקיה (oz)" -> inKg / 0.0283495; "טון (t)" -> inKg / 1000; else -> inKg }
+} }
+
+fun MainActivity.createTempCalculator(): View { return createConverterLayout("טמפרטורה", listOf("צלזיוס (°C)", "פרנהייט (°F)", "קלווין (K)"), fromTemp, toTemp, { fromTemp = it }, { toTemp = it }) { v, f, t ->
+    val inC = when (f) { "פרנהייט (°F)" -> (v - 32) * 5 / 9; "קלווין (K)" -> v - 273.15; else -> v }
+    when (t) { "פרנהייט (°F)" -> inC * 9 / 5 + 32; "קלווין (K)" -> inC + 273.15; else -> inC }
+} }
+
+fun MainActivity.createConverterLayout(title: String, options: List<String>, currentFrom: String, currentTo: String, saveFrom: (String) -> Unit, saveTo: (String) -> Unit, calc: (Double, String, String) -> Double): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    var locFrom = currentFrom; var locTo = currentTo
+    val btnFrom = createActionBtn("מ: $locFrom", false) {}
+    val btnTo = createActionBtn("ל: $locTo", false) {}
+    val input = createInputBox("הכנס ערך")
+    val resText = createResultTextView()
+    fun update() { savePreferences(); btnFrom.text = "מ: $locFrom"; btnTo.text = "ל: $locTo"; val v = input.text.toString().toDoubleOrNull(); if (v != null) resText.text = Utils.formatResult(calc(v, locFrom, locTo), 4) else resText.text = "" }
+    btnFrom.setOnClickListener { feedback(it); showItemPicker("בחר מקור", options) { sel -> locFrom = sel; saveFrom(sel); update() } }
+    btnTo.setOnClickListener { feedback(it); showItemPicker("בחר יעד", options) { sel -> locTo = sel; saveTo(sel); update() } }
+    input.addTextChangedListener(object : TextWatcher { override fun afterTextChanged(s: Editable?) { update() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} })
+    root.addView(btnFrom); root.addView(btnTo); root.addView(input); root.addView(resText); return root
+}
+
+fun MainActivity.createProgrammerCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val input = createInputBox("הכנס מספר עשרוני (Base 10)")
+    val resText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 18f; setPadding(0, dp(20f), 0, 0); setLineSpacing(dp(8f).toFloat(), 1.2f) }
+    input.addTextChangedListener(object : TextWatcher {
+        override fun afterTextChanged(s: Editable?) {
+            val v = s.toString().toLongOrNull()
+            if (v != null) resText.text = "HEX (בסיס 16):\n${v.toString(16).uppercase()}\n\nOCT (בסיס 8):\n${v.toString(8)}\n\nBIN (בסיס 2):\n${v.toString(2)}" else resText.text = ""
+        }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+    })
+    root.addView(input); root.addView(resText); return root
+}
+
+fun MainActivity.createPercentageCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val val1 = createInputBox("חלק / אחוז"); val val2 = createInputBox("שלם / סכום"); val resText = createResultTextView()
+    val btn1 = createActionBtn("כמה זה X% מתוך Y?") { val x = val1.text.toString().toDoubleOrNull() ?: 0.0; val y = val2.text.toString().toDoubleOrNull() ?: 0.0; resText.text = "תוצאה: ${Utils.formatResult(x * y / 100, 4)}" }
+    val btn2 = createActionBtn("איזה אחוז זה X מתוך Y?", false) { val x = val1.text.toString().toDoubleOrNull() ?: 0.0; val y = val2.text.toString().toDoubleOrNull() ?: 0.0; if (y != 0.0) resText.text = "תוצאה: ${Utils.formatResult(x / y * 100, 4)}%" }
+    root.addView(val1); root.addView(val2); root.addView(btn1); root.addView(btn2); root.addView(resText); return root
+}
+
+fun MainActivity.createDiscountCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val price = createInputBox("מחיר מקורי"); val discount = createInputBox("אחוז הנחה (%)"); val resText = createResultTextView()
+    fun calc() { val p = price.text.toString().toDoubleOrNull() ?: 0.0; val d = discount.text.toString().toDoubleOrNull() ?: 0.0; val saved = p * (d / 100); resText.text = "מחיר סופי: ${Utils.formatResult(p - saved, 2)}\nנחסך: ${Utils.formatResult(saved, 2)}" }
+    val tw = object : TextWatcher { override fun afterTextChanged(s: Editable?) { calc() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} }
+    price.addTextChangedListener(tw); discount.addTextChangedListener(tw); root.addView(price); root.addView(discount); root.addView(resText); return root
+}
+
+fun MainActivity.createTipCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val bill = createInputBox("סכום החשבון"); val tip = createInputBox("אחוז טיפ (%)").apply { setText("10") }; val people = createInputBox("מספר סועדים").apply { setText("1") }; val resText = createResultTextView()
+    fun calc() { val b = bill.text.toString().toDoubleOrNull() ?: 0.0; val t = tip.text.toString().toDoubleOrNull() ?: 10.0; val p = people.text.toString().toDoubleOrNull() ?: 1.0; if (p > 0) { val tipAmt = b * (t / 100); val total = b + tipAmt; resText.text = "טיפ סך הכל: ${Utils.formatResult(tipAmt, 2)}\nחשבון סופי: ${Utils.formatResult(total, 2)}\n\nלתשלום לכל סועד: ${Utils.formatResult(total / p, 2)}" } }
+    val tw = object : TextWatcher { override fun afterTextChanged(s: Editable?) { calc() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} }
+    bill.addTextChangedListener(tw); tip.addTextChangedListener(tw); people.addTextChangedListener(tw); root.addView(bill); root.addView(tip); root.addView(people); root.addView(resText); return root
+}
+
+fun MainActivity.createBMICalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val weight = createInputBox("משקל (ק״ג)"); val height = createInputBox("גובה (ס״מ)"); val resText = createResultTextView()
+    val btn = createActionBtn("חשב BMI") { val w = weight.text.toString().toDoubleOrNull() ?: 0.0; val h = height.text.toString().toDoubleOrNull() ?: 0.0; if (h > 0) { val hMeters = h / 100; val bmi = w / (hMeters * hMeters); val status = when { bmi < 18.5 -> "תת משקל"; bmi < 25 -> "משקל תקין"; bmi < 30 -> "עודף משקל"; else -> "השמנת יתר" }; resText.text = "ה-BMI שלך: ${Utils.formatResult(bmi, 1)}\nמצב: $status" } }
+    root.addView(weight); root.addView(height); root.addView(btn); root.addView(resText); return root
+}
+
+fun MainActivity.createAgeCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val btn = createActionBtn("בחר תאריך לידה") {}
+    val resText = createResultTextView()
+    btn.setOnClickListener {
+        feedback(it); val c = Calendar.getInstance()
+        DatePickerDialog(this, { _, y, m, d ->
+            val dob = Calendar.getInstance().apply { set(y, m, d) }; val today = Calendar.getInstance()
+            var ageYears = today.get(Calendar.YEAR) - dob.get(Calendar.YEAR)
+            if (today.get(Calendar.DAY_OF_YEAR) < dob.get(Calendar.DAY_OF_YEAR)) ageYears--
+            val diff = today.timeInMillis - dob.timeInMillis; val days = diff / (1000 * 60 * 60 * 24)
+            resText.text = "גיל בשנים: $ageYears\nגיל בימים: $days ימים"
+        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+    }
+    root.addView(btn); root.addView(resText); return root
+}
+
+fun MainActivity.createCurrencyCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    var locFrom = fromCurrency; var locTo = toCurrency
+    val btnFrom = createActionBtn("מ: $locFrom", false) {}
+    val btnTo = createActionBtn("ל: $locTo", false) {}
+    val input = createInputBox("סכום")
+    val resText = createResultTextView()
+    fun calc() {
+        val v = input.text.toString().toDoubleOrNull(); if (v == null) { resText.text = ""; return }
+        thread {
+            try {
+                val res = URL("https://open.er-api.com/v6/latest/${CurrencyData.getCode(locFrom)}").readText()
+                val json = JSONObject(res); val rate = json.getJSONObject("rates").getDouble(CurrencyData.getCode(locTo))
+                Handler(Looper.getMainLooper()).post { resText.text = "${Utils.formatResult(v * rate, 2)} ${CurrencyData.getCode(locTo)}" }
+            } catch (e: Exception) { Handler(Looper.getMainLooper()).post { resText.text = "שגיאת רשת" } }
+        }
+    }
+    btnFrom.setOnClickListener { feedback(it); showItemPicker("מטבע מקור", allCurrencies) { sel -> locFrom = sel; fromCurrency = sel; savePreferences(); btnFrom.text = "מ: $locFrom"; calc() } }
+    btnTo.setOnClickListener { feedback(it); showItemPicker("מטבע יעד", allCurrencies) { sel -> locTo = sel; toCurrency = sel; savePreferences(); btnTo.text = "ל: $locTo"; calc() } }
+    input.addTextChangedListener(object : TextWatcher { override fun afterTextChanged(s: Editable?) { calc() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} })
+    root.addView(btnFrom); root.addView(btnTo); root.addView(input); root.addView(resText); return root
+}
+fun MainActivity.createBmrCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    var isMale = true
+    val genderBtn = createActionBtn("מין: גבר 👨", false) {}
+    genderBtn.setOnClickListener { feedback(it); isMale = !isMale; genderBtn.text = if (isMale) "מין: גבר 👨" else "מין: אישה 👩" }
+    val weight = createInputBox("משקל (ק״ג)"); val height = createInputBox("גובה (ס״מ)"); val age = createInputBox("גיל")
+    val resText = createResultTextView()
+    val btn = createActionBtn("חשב BMR") {
+        val w = weight.text.toString().toDoubleOrNull() ?: 0.0; val h = height.text.toString().toDoubleOrNull() ?: 0.0; val a = age.text.toString().toDoubleOrNull() ?: 0.0
+        if (w > 0 && h > 0 && a > 0) { val bmr = if (isMale) 88.362 + (13.397 * w) + (4.799 * h) - (5.677 * a) else 447.593 + (9.247 * w) + (3.098 * h) - (4.330 * a); resText.text = "שריפת קלוריות במנוחה (BMR):\n${Utils.formatResult(bmr, 0)} קלוריות ליום" }
+    }
+    root.addView(genderBtn); root.addView(weight); root.addView(height); root.addView(age); root.addView(btn); root.addView(resText); return root
+}
+
+fun MainActivity.createQuadraticCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val aIn = createInputBox("מקדם a"); val bIn = createInputBox("מקדם b"); val cIn = createInputBox("מקדם c")
+    val resText = createResultTextView()
+    val btn = createActionBtn("חשב שורשים") {
+        val a = aIn.text.toString().toDoubleOrNull() ?: 0.0; val b = bIn.text.toString().toDoubleOrNull() ?: 0.0; val c = cIn.text.toString().toDoubleOrNull() ?: 0.0
+        if (a == 0.0) { resText.text = "לא משוואה ריבועית (a=0)" } else {
+            val delta = b * b - 4 * a * c
+            when { delta > 0 -> { val x1 = (-b + sqrt(delta)) / (2 * a); val x2 = (-b - sqrt(delta)) / (2 * a); resText.text = "X₁ = ${Utils.formatResult(x1, 4)}\nX₂ = ${Utils.formatResult(x2, 4)}" }; delta == 0.0 -> resText.text = "X = ${Utils.formatResult(-b / (2 * a), 4)}"; else -> resText.text = "אין פתרון ממשי (Δ < 0)" }
+        }
+    }
+    root.addView(aIn); root.addView(bIn); root.addView(cIn); root.addView(btn); root.addView(resText); return root
+}
+
+fun MainActivity.createFractionCalculator(): View {
+    val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
+    val n1 = createInputBox("מונה 1"); val d1 = createInputBox("מכנה 1")
+    val opBtn = createActionBtn("פעולה: חיבור (+)", false) {}
+    var op = "+"
+    opBtn.setOnClickListener { feedback(it); val ops = arrayOf("+", "-", "×", "÷"); val next = (ops.indexOf(op) + 1) % ops.size; op = ops[next]; opBtn.text = "פעולה: $op" }
+    val n2 = createInputBox("מונה 2"); val d2 = createInputBox("מכנה 2"); val resText = createResultTextView()
+    val btn = createActionBtn("חשב שבר") {
+        val a = n1.text.toString().toDoubleOrNull() ?: 0.0; val b = d1.text.toString().toDoubleOrNull() ?: 1.0
+        val c = n2.text.toString().toDoubleOrNull() ?: 0.0; val d = d2.text.toString().toDoubleOrNull() ?: 1.0
+        if (b == 0.0 || d == 0.0) { resText.text = "חלוקה באפס!" } else {
+            var rn = 0.0; var rd = 1.0
+            when (op) { "+" -> { rn = a * d + c * b; rd = b * d }; "-" -> { rn = a * d - c * b; rd = b * d }; "×" -> { rn = a * c; rd = b * d }; "÷" -> { rn = a * d; rd = b * c } }
+            resText.text = "${Utils.formatResult(rn, 0)} / ${Utils.formatResult(rd, 0)}\n= ${Utils.formatResult(rn / rd, 4)}"
+        }
+    }
+    root.addView(n1); root.addView(d1); root.addView(opBtn); root.addView(n2); root.addView(d2); root.addView(btn); root.addView(resText); return root
+}
+
 fun MainActivity.createSettingsPage(): View {
     val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
+    
     val titleThemes = TextView(this).apply { text = "🎨 ערכות נושא מוכנות (Themes)"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)) }
     val themeScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16f) } }
     val themeContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     val presetThemes = listOf(Triple("OLED", "#64B5F6", "#08090C"), Triple("Matrix", "#00E676", "#0A190F"), Triple("Barbie", "#FF4081", "#2A0A18"), Triple("Ocean", "#00B4D8", "#0A1128"), Triple("Sunset", "#FFB703", "#1A0F0A"), Triple("Dracula", "#BD93F9", "#282A36"), Triple("Cyber", "#FF007F", "#120458"))
     for (theme in presetThemes) { val tName = theme.first; val tPri = Color.parseColor(theme.second); val tBg = Color.parseColor(theme.third); val btn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(12f), dp(12f), dp(12f), dp(12f)); background = GradientDrawable().apply { setColor(tBg); cornerRadius = dp(16f).toFloat(); setStroke(dp(2f), tPri) }; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6f), dp(6f), dp(6f), dp(6f)) }; addView(TextView(this@createSettingsPage).apply { text = tName; setTextColor(tPri); textSize = 14f; typeface = Typeface.DEFAULT_BOLD }); setOnClickListener { feedback(it); primaryColor = tPri; bgColor = tBg; savePreferences(); applyTheme() } }; themeContainer.addView(btn) }
     themeScroll.addView(themeContainer)
+    
     var editingTarget = 0; val targetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16f); bottomMargin = dp(14f) } }
     lateinit var btnEditPrimary: TextView; lateinit var btnEditBg: TextView; lateinit var pickerContainer: FrameLayout
     fun refreshTargetButtons() { btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE); btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE) }
@@ -50,13 +234,22 @@ fun MainActivity.createSettingsPage(): View {
     btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
     btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
     targetRow.addView(btnEditPrimary); targetRow.addView(btnEditBg); pickerContainer = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(18f) } }; loadColorPicker()
+    
     val titleSettings = TextView(this).apply { text = "הגדרות מערכת נוספות"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8f), 0, dp(10f)) }
+    
+    val animBtn = createActionBtn(if (useAnimations) "אנימציות מתקדמות: מופעל ✨" else "אנימציות מתקדמות: כבוי ⚡", false) { useAnimations = !useAnimations; savePreferences(); applyTheme() }
     val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
     val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
-    val sndTypeBtn = createActionBtn(when(soundType) { 1 -> "סוג צליל: צליל 1 🎵"; 2 -> "סוג צליל: צליל 2 🎶"; else -> "סוג צליל: מערכת 📱" }, false) { val opts = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶"); AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("בחר צליל").setSingleChoiceItems(opts, soundType) { d, w -> soundType = w; savePreferences(); applyTheme(); d.dismiss() }.show() }
+    
+    // מערך שמציג כעת רק 2 צלילים לבחירה (ומערכת)
+    val soundNames = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶")
+    val sndTypeBtn = createActionBtn("סוג צליל: ${soundNames.getOrElse(soundType) { "מערכת 📱" }}", false) { AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("בחר צליל").setSingleChoiceItems(soundNames, soundType) { d, w -> soundType = w; savePreferences(); applyTheme(); d.dismiss() }.show() }
+    
     val scrBtn = createActionBtn(if (keepScreenOn) "מסך תמיד דולק: מופעל 🔆" else "מסך תמיד דולק: כבוי 🌙", false) { keepScreenOn = !keepScreenOn; updateKeepScreenOn(); savePreferences(); applyTheme() }
     val shapeName = when(buttonCornerStyle) { 8f -> "מרובעים ⏹️"; 24f -> "מודרניים 🔲"; else -> "עגולים ⚪" }
     val shapeBtn = createActionBtn("צורת כפתורים: $shapeName", false) { buttonCornerStyle = when(buttonCornerStyle) { 8f -> 24f; 24f -> 42f; else -> 8f }; savePreferences(); applyTheme() }
     val precBtn = createActionBtn("דיוק עשרוני: $calcPrecision ספרות ⚙️", false) { calcPrecision = if (calcPrecision >= 10) 2 else calcPrecision + 2; savePreferences(); applyTheme() }
-    root.addView(titleThemes); root.addView(themeScroll); root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings); root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
+    
+    root.addView(titleThemes); root.addView(themeScroll); root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings)
+    root.addView(animBtn); root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
 }
