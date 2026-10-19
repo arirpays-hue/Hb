@@ -12,6 +12,7 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import org.json.JSONObject
 import java.net.URL
 import java.util.*
 import kotlin.concurrent.thread
@@ -145,7 +146,7 @@ fun MainActivity.createCurrencyCalculator(): View {
                 val codeFrom = if (locFrom.length >= 3) locFrom.takeLast(4).trim('(', ')') else locFrom
                 val codeTo = if (locTo.length >= 3) locTo.takeLast(4).trim('(', ')') else locTo
                 val res = URL("https://open.er-api.com/v6/latest/$codeFrom").readText()
-                val json = org.json.JSONObject(res); val rate = json.getJSONObject("rates").getDouble(codeTo)
+                val json = JSONObject(res); val rate = json.getJSONObject("rates").getDouble(codeTo)
                 Handler(Looper.getMainLooper()).post { resText.text = "${Utils.formatResult(v * rate, 2)} $codeTo" }
             } catch (e: Exception) { Handler(Looper.getMainLooper()).post { resText.text = "שגיאת רשת" } }
         }
@@ -215,17 +216,40 @@ fun MainActivity.createSettingsPage(): View {
     
     var editingTarget = 0; val targetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16f); bottomMargin = dp(14f) } }
     lateinit var btnEditPrimary: TextView; lateinit var btnEditBg: TextView; lateinit var pickerContainer: FrameLayout
-    fun refreshTargetButtons() { btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE); btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE) }
     
-    // קריאה לפונקציה מתוך ColorWheelView.kt (ללא איחוד קבצים!)
-    fun loadColorPicker() { refreshTargetButtons(); pickerContainer.removeAllViews(); pickerContainer.addView(createColorWheelPicker(this, if (editingTarget == 0) primaryColor else bgColor) { newColor -> if (editingTarget == 0) primaryColor = newColor else bgColor = newColor; savePreferences(); applyTheme(); refreshTargetButtons() }) }
+    fun refreshTargetButtons() { 
+        btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }
+        btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE)
+        btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }
+        btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE) 
+    }
+    
+    // התיקון שלנו לצבעים החיים - קריאה לפונקציה מתוך ColorWheelView.kt
+    fun loadColorPicker() { 
+        refreshTargetButtons() 
+        pickerContainer.removeAllViews() 
+        pickerContainer.addView(createColorWheelPicker(this, if (editingTarget == 0) primaryColor else bgColor) { newColor -> 
+            if (editingTarget == 0) {
+                primaryColor = newColor
+            } else {
+                bgColor = newColor
+                // עדכון חי וחלק של הרקע בלי לקרוא ל-applyTheme() כדי שהמסך לא יקפוץ למעלה
+                window.statusBarColor = bgColor
+                window.navigationBarColor = bgColor
+                mainContent?.setBackgroundColor(bgColor)
+                drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f))
+            }
+            savePreferences() 
+            refreshTargetButtons() 
+        }) 
+    }
+    
     btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
     btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
     targetRow.addView(btnEditPrimary); targetRow.addView(btnEditBg); pickerContainer = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(18f) } }; loadColorPicker()
     
     val titleSettings = TextView(this).apply { text = "הגדרות מערכת נוספות"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8f), 0, dp(10f)) }
     
-    val animBtn = createActionBtn(if (useAnimations) "אנימציות מתקדמות: מופעל ✨" else "אנימציות מתקדמות: כבוי ⚡", false) { useAnimations = !useAnimations; savePreferences(); applyTheme() }
     val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
     val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
     
@@ -238,5 +262,5 @@ fun MainActivity.createSettingsPage(): View {
     val precBtn = createActionBtn("דיוק עשרוני: $calcPrecision ספרות ⚙️", false) { calcPrecision = if (calcPrecision >= 10) 2 else calcPrecision + 2; savePreferences(); applyTheme() }
     
     root.addView(titleThemes); root.addView(themeScroll); root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings)
-    root.addView(animBtn); root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
+    root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
 }
