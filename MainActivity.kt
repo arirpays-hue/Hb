@@ -58,7 +58,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     var soundIds = IntArray(13)
     var acSoundId = 0
 
-    // משתנה חדש לאנימציות
     var useHaptic = true; var useSound = true; var useAnimations = true; var keepScreenOn = false; var soundType = 0
     var calcPrecision = 8; var buttonCornerStyle = 24f
     var primaryColor = Color.parseColor("#64B5F6"); var bgColor = Color.parseColor("#08090C")
@@ -117,12 +116,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         menuBtn = TextView(this).apply { text = "☰"; setTextColor(Color.WHITE); textSize = 28f; setPadding(0, 0, dp(16f), 0); setOnClickListener { feedback(it); openDrawer() } }
         titleText = TextView(this).apply { text = "מחשבון פרימיום"; setTextColor(Color.WHITE); textSize = 22f; typeface = Typeface.DEFAULT_BOLD; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
         
+        val micBtn = TextView(this).apply { text = "🎤"; textSize = 22f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(16f), dp(8f)); setOnClickListener { feedback(it); startVoiceRecognition() } }
         val pipBtn = TextView(this).apply { text = "🧮"; textSize = 22f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(16f), dp(8f)); setOnClickListener { feedback(it)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(3, 4)).build()) } else { Toast.makeText(this@MainActivity, "חלון צף נתמך רק באנדרואיד 8 ומעלה", Toast.LENGTH_SHORT).show() }
         } }
         val historyBtn = TextView(this).apply { text = "🕒"; textSize = 20f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(8f), dp(8f)); setOnClickListener { feedback(it); showHistoryDialog() } }
 
-        topHeader.addView(menuBtn); topHeader.addView(titleText); topHeader.addView(pipBtn); topHeader.addView(historyBtn)
+        topHeader.addView(menuBtn); topHeader.addView(titleText); topHeader.addView(micBtn); topHeader.addView(pipBtn); topHeader.addView(historyBtn)
         contentFrame = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f) }
         mainContent?.addView(topHeader); mainContent?.addView(contentFrame)
 
@@ -147,11 +147,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     override fun onNewIntent(intent: Intent?) { super.onNewIntent(intent); handleIntent(intent) }
     private fun handleIntent(intent: Intent?) { when (intent?.action) { "ACTION_CALC" -> { currentTabIndex = 0; applyTheme() }; "ACTION_SCI" -> { currentTabIndex = 1; applyTheme() }; "ACTION_COIN" -> { currentTabIndex = 13; applyTheme() }; else -> applyTheme() } }
     private fun setupShortcuts() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) { val sm = getSystemService(ShortcutManager::class.java); val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build(); val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מדעית").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build(); sm.dynamicShortcuts = listOf(s1, s2) } }
-
-    private fun loadPreferences() {
-        useHaptic = prefs?.getBoolean("useHaptic", true) ?: true
-        useSound = prefs?.getBoolean("useSound", true) ?: true
-        useAnimations = prefs?.getBoolean("useAnimations", true) ?: true // שמירת העדפת האנימציות
+        private fun loadPreferences() {
+        useHaptic = prefs?.getBoolean("useHaptic", true) ?: true; useSound = prefs?.getBoolean("useSound", true) ?: true; useAnimations = prefs?.getBoolean("useAnimations", true) ?: true
         keepScreenOn = prefs?.getBoolean("keepScreenOn", false) ?: false; soundType = prefs?.getInt("soundType", 0) ?: 0
         calcPrecision = prefs?.getInt("calcPrecision", 8) ?: 8; buttonCornerStyle = prefs?.getFloat("buttonCornerStyle", 24f) ?: 24f
         primaryColor = prefs?.getInt("primaryColor", Color.parseColor("#64B5F6")) ?: Color.parseColor("#64B5F6"); bgColor = prefs?.getInt("bgColor", Color.parseColor("#08090C")) ?: Color.parseColor("#08090C")
@@ -169,7 +166,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent?.setBackgroundColor(bgColor); drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f)); updateDrawerSelection(); switchTab(currentTabIndex) }
     private fun openDrawer() { val drawer = rootFrame.getChildAt(2); dimView.visibility = View.VISIBLE; dimView.animate().alpha(1f).setDuration(250).start(); drawer.animate().translationX(0f).setDuration(250).setInterpolator(android.view.animation.DecelerateInterpolator()).start(); isDrawerOpen = true }
     private fun closeDrawer() { val drawer = rootFrame.getChildAt(2); dimView.animate().alpha(0f).setDuration(250).withEndAction { dimView.visibility = View.GONE }.start(); drawer.animate().translationX(dp(280f).toFloat()).setDuration(250).setInterpolator(android.view.animation.AccelerateInterpolator()).start(); isDrawerOpen = false }
-        fun feedback(view: View, symbol: String = "") { 
+
+    fun feedback(view: View, symbol: String = "") { 
         if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         if (useSound) { 
             if (symbol == "AC" && acSoundId != 0) {
@@ -301,8 +299,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
     }
-
-    private fun onEquationButtonClick(s: String) {
+        private fun onEquationButtonClick(s: String) {
         if (justCalculated && s !in listOf("÷", "×", "−", "+", "^", "%")) { currentInput = ""; justCalculated = false }
         justCalculated = false
         when (s) {
@@ -313,7 +310,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             "sin", "cos", "tan", "log", "ln" -> { currentInput += "$s(" }; "√" -> { currentInput += "√(" }; "x²" -> { currentInput += "^2" }; "x³" -> { currentInput += "^3" }; "x^y" -> { currentInput += "^" }
             "=" -> {
                 if (checkEasterEggs(currentInput)) return
-                
                 if (currentInput.isNotEmpty()) {
                     try {
                         val res = Utils.evalMathExpression(currentInput)
@@ -355,5 +351,46 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val animator = android.animation.ObjectAnimator.ofFloat(mainContent, "translationX", 0f, 35f, -35f, 25f, -25f, 15f, -15f, 6f, -6f, 0f)
         animator.duration = 600
         animator.start()
+    }
+
+    // --- מערכת ההקלדה הקולית (Speech to Text) ---
+    private val VOICE_REQUEST_CODE = 999
+    
+    private fun startVoiceRecognition() {
+        val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "he-IL")
+            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "אמור תרגיל (לדוגמה: חמש כפול שמונה)")
+        }
+        try { startActivityForResult(intent, VOICE_REQUEST_CODE) } 
+        catch (e: Exception) { Toast.makeText(this, "זיהוי קולי לא נתמך במכשיר זה", Toast.LENGTH_SHORT).show() }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == VOICE_REQUEST_CODE && resultCode == RESULT_OK) {
+            val matches = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                if (justCalculated) { currentInput = ""; justCalculated = false }
+                
+                var spoken = matches[0].lowercase()
+                
+                val ops = mapOf(" פלוס " to "+", " ועוד " to "+", " פחות " to "−", " מינוס " to "−", " כפול " to "×", " לחלק ל" to "÷", " חלקי " to "÷", " נקודה " to ".", "פלוס" to "+", "ועוד" to "+", "פחות" to "−", "מינוס" to "−", "כפול" to "×", "לחלק ל" to "÷", "חלקי" to "÷", "נקודה" to ".")
+                val nums = mapOf("אפס" to "0", "אחת" to "1", "אחד" to "1", "שתיים" to "2", "שניים" to "2", "שלוש" to "3", "שלושה" to "3", "ארבע" to "4", "ארבעה" to "4", "חמש" to "5", "חמישה" to "5", "שש" to "6", "שישה" to "6", "שבע" to "7", "שבעה" to "7", "שמונה" to "8", "תשע" to "9", "תשעה" to "9", "עשר" to "10", "עשרה" to "10")
+                
+                for ((w, s) in ops) spoken = spoken.replace(w, s)
+                for ((w, s) in nums) spoken = spoken.replace(Regex("\\b$w\\b"), s) 
+                
+                spoken = spoken.replace(" ", "")
+                val cleanMath = spoken.replace("-", "−").replace(Regex("[^0-9.−+×÷]"), "")
+                
+                currentInput += cleanMath
+                currentView?.text = if (currentInput.isEmpty()) "0" else currentInput
+                
+                if (cleanMath.any { it in listOf('+', '−', '×', '÷') } && cleanMath.lastOrNull()?.isDigit() == true) {
+                    onEquationButtonClick("=")
+                }
+            }
+        }
     }
 }
