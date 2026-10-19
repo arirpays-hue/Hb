@@ -69,6 +69,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     var fromWeight = "קילוגרם (kg)"; var toWeight = "פאונד (lbs)"
     var fromTemp = "צלזיוס (°C)"; var toTemp = "פרנהייט (°F)"
 
+    private var swipeStartY = 0f
+    private var swipeStartX = 0f
+
     var allCurrencies = mutableListOf(
         CurrencyData.getFullName("USD"), CurrencyData.getFullName("ILS"), CurrencyData.getFullName("EUR")
     )
@@ -353,7 +356,25 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         animator.start()
     }
 
-    // --- מערכת ההקלדה הקולית (Speech to Text) ---
+    // --- מערכת ההחלקה (Swipe) וההקלדה הקולית (Speech to Text) ---
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (currentTabIndex == 0 || currentTabIndex == 1) {
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> { swipeStartY = ev.y; swipeStartX = ev.x }
+                MotionEvent.ACTION_UP -> {
+                    val dy = ev.y - swipeStartY; val dx = ev.x - swipeStartX
+                    val screenHeight = resources.displayMetrics.heightPixels
+                    // זיהוי החלקה מהירה מלמטה (מהחצי התחתון של המסך) כלפי מעלה
+                    if (swipeStartY > screenHeight * 0.5f && dy < -150f && Math.abs(dy) > Math.abs(dx)) {
+                        mainContent?.let { feedback(it) }
+                        startVoiceRecognition()
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     private val VOICE_REQUEST_CODE = 999
     
     private fun startVoiceRecognition() {
