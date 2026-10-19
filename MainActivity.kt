@@ -84,8 +84,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE); loadPreferences()
         tts = TextToSpeech(this, this)
         
+        // תיקון קריטי: מעבר לערוץ המדיה כדי להבטיח השמעה
         val audioAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
             
@@ -278,7 +279,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             "AC" -> { currentInput = ""; expressionView?.text = "" }; "⌫" -> { if (currentInput.isNotEmpty()) currentInput = currentInput.dropLast(1) }
             "sin", "cos", "tan", "log", "ln" -> { currentInput += "$s(" }; "√" -> { currentInput += "√(" }; "x²" -> { currentInput += "^2" }; "x³" -> { currentInput += "^3" }; "x^y" -> { currentInput += "^" }
             "=" -> {
-                // הקריאה שמחפשת הפתעות (ביצי פסחא) במקום לחשב
                 if (checkEasterEggs(currentInput)) return
                 
                 if (currentInput.isNotEmpty()) {
