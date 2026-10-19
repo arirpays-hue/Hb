@@ -59,6 +59,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private lateinit var titleText: TextView
     private lateinit var menuBtn: TextView
     private val drawerItemsViews = mutableListOf<View>()
+    val keypadButtons = mutableMapOf<String, TextView>()
     private var tts: TextToSpeech? = null
 
     private lateinit var soundPool: SoundPool
@@ -66,6 +67,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     var acSoundId = 0
 
     var useHaptic = true; var useSound = true; var useAnimations = true; var keepScreenOn = false; var soundType = 0
+    var isRightHanded = true // מצב ימניים כברירת מחדל (ניתן להחלפה בהגדרות לשמאליים)
     var calcPrecision = 8; var buttonCornerStyle = 24f
     var primaryColor = Color.parseColor("#64B5F6"); var bgColor = Color.parseColor("#08090C")
     var memoryValue = 0.0; var currentTabIndex = 0
@@ -80,9 +82,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     val cachedRates = mutableMapOf<String, Double>()
 
     var allCurrencies = mutableListOf(
-        CurrencyData.getFullName("USD"), CurrencyData.getFullName("ILS"), CurrencyData.getFullName("EUR"),
-        CurrencyData.getFullName("GBP"), CurrencyData.getFullName("JPY"), CurrencyData.getFullName("CAD"),
-        CurrencyData.getFullName("AUD"), CurrencyData.getFullName("CHF")
+        "דולר אמריקאי (ארה״ב) - USD", "שקל חדש (ישראל) - ILS", "אירו (האיחוד האירופי) - EUR",
+        "לירה שטרלינג (בריטניה) - GBP", "ין יפני (יפן) - JPY", "דולר קנדי (קנדה) - CAD",
+        "דולר אוסטרלי (אוסטרליה) - AUD", "פרנק שווייצרי (שווייץ) - CHF"
     )
 
     private val categories = listOf(
@@ -117,10 +119,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         rootFrame = FrameLayout(this)
         mainContent = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT) }
 
-        // סרגל עליון קבוע כך שכפתור התפריט בשמאל והמגירה נפתחת משמאל
-        topHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutDirection = View.LAYOUT_DIRECTION_LTR; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(16f)) }
-        menuBtn = TextView(this).apply { text = "☰"; setTextColor(Color.WHITE); textSize = 28f; setPadding(0, 0, dp(16f), 0); setOnClickListener { feedback(it); if (isDrawerOpen) closeDrawer() else openDrawer() } }
-        titleText = TextView(this).apply { text = "מחשבון פרימיום"; setTextColor(Color.WHITE); textSize = 22f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(12f) } }
+        topHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(16f)) }
+        menuBtn = TextView(this).apply { text = "☰"; setTextColor(Color.WHITE); textSize = 28f; setPadding(dp(8f), 0, dp(8f), 0); setOnClickListener { feedback(it); if (isDrawerOpen) closeDrawer() else openDrawer() } }
+        titleText = TextView(this).apply { text = "מחשבון פרימיום"; setTextColor(Color.WHITE); textSize = 22f; typeface = Typeface.DEFAULT_BOLD; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(12f), 0, dp(12f), 0) } }
 
         val pipBtn = TextView(this).apply { text = "🧮"; textSize = 22f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(12f), dp(8f)); setOnClickListener { feedback(it)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(3, 4)).build()) } else { Toast.makeText(this@MainActivity, "חלון צף נתמך רק באנדרואיד 8 ומעלה", Toast.LENGTH_SHORT).show() }
@@ -132,7 +133,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         mainContent?.addView(topHeader); mainContent?.addView(contentFrame)
 
         dimView = View(this).apply { setBackgroundColor(Color.parseColor("#B3000000")); visibility = View.GONE; alpha = 0f; layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT); setOnClickListener { if (isDrawerOpen) closeDrawer() } }
-        drawerScroll = ScrollView(this).apply { layoutParams = FrameLayout.LayoutParams(dp(280f), FrameLayout.LayoutParams.MATCH_PARENT).apply { gravity = Gravity.LEFT }; isClickable = true }
+        drawerScroll = ScrollView(this).apply { isClickable = true }
         drawerMenu = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(30f), 0, dp(30f)) }
 
         val appLogo = TextView(this).apply { text = "אולר שווייצרי\nPro fx-991"; setTextColor(Color.WHITE); textSize = 24f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(30f)) }
@@ -144,16 +145,38 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
 
         drawerScroll.addView(drawerMenu); rootFrame.addView(mainContent); rootFrame.addView(dimView); rootFrame.addView(drawerScroll)
-        drawerScroll.translationX = -dp(280f).toFloat(); setContentView(rootFrame); setupShortcuts(); handleIntent(intent)
+        updateHandednessLayout()
+        setContentView(rootFrame); setupShortcuts(); handleIntent(intent)
     }
 
-    fun fetchAndCacheCurrencies(onComplete: ((Boolean) -> Unit)? = null) {
+    fun updateHandednessLayout() {
+        // מצב ימניים: תפריט בימין וכלים בשמאל. מצב שמאליים: תפריט בשמאל וכלים בימין
+        topHeader.layoutDirection = if (isRightHanded) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+        titleText.gravity = (if (isRightHanded) Gravity.RIGHT else Gravity.LEFT) or Gravity.CENTER_VERTICAL
+        drawerScroll.layoutParams = FrameLayout.LayoutParams(dp(280f), FrameLayout.LayoutParams.MATCH_PARENT).apply {
+            gravity = if (isRightHanded) Gravity.RIGHT else Gravity.LEFT
+        }
+        if (!isDrawerOpen) {
+            drawerScroll.translationX = if (isRightHanded) dp(280f).toFloat() else -dp(280f).toFloat()
+        }
+    }
+        fun fetchAndCacheCurrencies(onComplete: ((Boolean) -> Unit)? = null) {
         val savedJson = prefs?.getString("cachedRatesJson", null)
-        if (savedJson != null && cachedRates.isEmpty()) {
+        if (savedJson != null) {
             try {
                 val rates = JSONObject(savedJson)
                 val keys = rates.keys()
-                while (keys.hasNext()) { val k = keys.next(); cachedRates[k] = rates.getDouble(k) }
+                val fetchedLocal = mutableListOf<String>()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    cachedRates[k] = rates.getDouble(k)
+                    fetchedLocal.add(CurrencyData.getFullName(k))
+                }
+                if (fetchedLocal.isNotEmpty()) {
+                    fetchedLocal.sort()
+                    allCurrencies.clear()
+                    allCurrencies.addAll(fetchedLocal)
+                }
             } catch (e: Exception) {}
         }
         thread {
@@ -189,9 +212,11 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     override fun onNewIntent(intent: Intent?) { super.onNewIntent(intent); handleIntent(intent) }
     private fun handleIntent(intent: Intent?) { when (intent?.action) { "ACTION_CALC" -> { currentTabIndex = 0; applyTheme() }; "ACTION_SCI" -> { currentTabIndex = 1; applyTheme() }; "ACTION_COIN" -> { currentTabIndex = 13; applyTheme() }; else -> applyTheme() } }
     private fun setupShortcuts() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) { val sm = getSystemService(ShortcutManager::class.java); val s1 = ShortcutInfo.Builder(this, "coin").setShortLabel("מטבעות").setIcon(Icon.createWithResource(this, android.R.drawable.star_on)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_COIN" }).build(); val s2 = ShortcutInfo.Builder(this, "sci").setShortLabel("מדעית").setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_edit)).setIntent(Intent(this, MainActivity::class.java).apply { action = "ACTION_SCI" }).build(); sm.dynamicShortcuts = listOf(s1, s2) } }
-        private fun loadPreferences() {
+
+    private fun loadPreferences() {
         useHaptic = prefs?.getBoolean("useHaptic", true) ?: true; useSound = prefs?.getBoolean("useSound", true) ?: true; useAnimations = prefs?.getBoolean("useAnimations", true) ?: true
         keepScreenOn = prefs?.getBoolean("keepScreenOn", false) ?: false; soundType = prefs?.getInt("soundType", 0) ?: 0
+        isRightHanded = prefs?.getBoolean("isRightHanded", true) ?: true
         calcPrecision = prefs?.getInt("calcPrecision", 8) ?: 8; buttonCornerStyle = prefs?.getFloat("buttonCornerStyle", 24f) ?: 24f
         primaryColor = prefs?.getInt("primaryColor", Color.parseColor("#64B5F6")) ?: Color.parseColor("#64B5F6"); bgColor = prefs?.getInt("bgColor", Color.parseColor("#08090C")) ?: Color.parseColor("#08090C")
         memoryValue = Double.fromBits(prefs?.getLong("memoryValue", 0L) ?: 0L); val savedHist = prefs?.getString("history", "") ?: ""
@@ -204,12 +229,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         historyList.clear(); if (savedHist.isNotEmpty()) historyList.addAll(savedHist.split("||")); updateKeepScreenOn()
     }
 
-    fun savePreferences() { prefs?.edit()?.putBoolean("useHaptic", useHaptic)?.putBoolean("useSound", useSound)?.putBoolean("useAnimations", useAnimations)?.putBoolean("keepScreenOn", keepScreenOn)?.putInt("soundType", soundType)?.putInt("calcPrecision", calcPrecision)?.putFloat("buttonCornerStyle", buttonCornerStyle)?.putInt("primaryColor", primaryColor)?.putInt("bgColor", bgColor)?.putLong("memoryValue", memoryValue.toRawBits())?.putString("fromCurrency", fromCurrency)?.putString("toCurrency", toCurrency)?.putString("fromDist", fromDist)?.putString("toDist", toDist)?.putString("fromWeight", fromWeight)?.putString("toWeight", toWeight)?.putString("fromTemp", fromTemp)?.putString("toTemp", toTemp)?.putString("fromSpeed", fromSpeed)?.putString("toSpeed", toSpeed)?.putString("history", historyList.take(30).joinToString("||"))?.apply() }
+    fun savePreferences() { prefs?.edit()?.putBoolean("useHaptic", useHaptic)?.putBoolean("useSound", useSound)?.putBoolean("useAnimations", useAnimations)?.putBoolean("keepScreenOn", keepScreenOn)?.putBoolean("isRightHanded", isRightHanded)?.putInt("soundType", soundType)?.putInt("calcPrecision", calcPrecision)?.putFloat("buttonCornerStyle", buttonCornerStyle)?.putInt("primaryColor", primaryColor)?.putInt("bgColor", bgColor)?.putLong("memoryValue", memoryValue.toRawBits())?.putString("fromCurrency", fromCurrency)?.putString("toCurrency", toCurrency)?.putString("fromDist", fromDist)?.putString("toDist", toDist)?.putString("fromWeight", fromWeight)?.putString("toWeight", toWeight)?.putString("fromTemp", fromTemp)?.putString("toTemp", toTemp)?.putString("fromSpeed", fromSpeed)?.putString("toSpeed", toSpeed)?.putString("history", historyList.take(30).joinToString("||"))?.apply() }
     fun updateKeepScreenOn() { if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
 
-    fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent?.setBackgroundColor(bgColor); drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f)); updateDrawerSelection(); switchTab(currentTabIndex) }
-    private fun openDrawer() { dimView.visibility = View.VISIBLE; dimView.animate().alpha(1f).setDuration(250).start(); drawerScroll.animate().translationX(0f).setDuration(280).setInterpolator(DecelerateInterpolator()).start(); isDrawerOpen = true }
-    private fun closeDrawer() { dimView.animate().alpha(0f).setDuration(250).withEndAction { dimView.visibility = View.GONE }.start(); drawerScroll.animate().translationX(-dp(280f).toFloat()).setDuration(250).setInterpolator(AccelerateInterpolator()).start(); isDrawerOpen = false }
+    fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent?.setBackgroundColor(bgColor); drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f)); updateHandednessLayout(); updateDrawerSelection(); switchTab(currentTabIndex) }
+    private fun openDrawer() { updateHandednessLayout(); dimView.visibility = View.VISIBLE; dimView.animate().alpha(1f).setDuration(250).start(); drawerScroll.animate().translationX(0f).setDuration(280).setInterpolator(DecelerateInterpolator()).start(); isDrawerOpen = true }
+    private fun closeDrawer() { val targetX = if (isRightHanded) dp(280f).toFloat() else -dp(280f).toFloat(); dimView.animate().alpha(0f).setDuration(250).withEndAction { dimView.visibility = View.GONE }.start(); drawerScroll.animate().translationX(targetX).setDuration(250).setInterpolator(AccelerateInterpolator()).start(); isDrawerOpen = false }
 
     fun feedback(view: View, symbol: String = "") {
         if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -250,8 +275,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         searchInput.addTextChangedListener(object : TextWatcher { override fun afterTextChanged(s: Editable?) { populateList(s.toString()) }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} })
         populateList(""); dialogView.addView(searchInput); dialogView.addView(scrollView); dialog.show()
     }
-
-    private fun updateDrawerSelection() {
+        private fun updateDrawerSelection() {
         for (i in drawerItemsViews.indices) {
             val tv = drawerItemsViews[i] as TextView
             if (i == currentTabIndex) { tv.setBackgroundColor(Color.argb(45, Color.red(primaryColor), Color.green(primaryColor), Color.blue(primaryColor))); tv.setTextColor(primaryColor) }
@@ -260,6 +284,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun switchTab(index: Int) {
+        if (MiniGameEngine.isActive) MiniGameEngine.stopGame(this)
         currentTabIndex = index
         titleText.text = categories[index].substringAfter(" ")
         updateDrawerSelection(); contentFrame.removeAllViews()
@@ -268,7 +293,19 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             4 -> createDistanceCalculator(); 5 -> createWeightCalculator(); 6 -> createTempCalculator(); 7 -> createProgrammerCalculator()
             8 -> createPercentageCalculator(); 9 -> createDiscountCalculator(); 10 -> createTipCalculator(); 11 -> createBMICalculator()
             12 -> createAgeCalculator(); 13 -> createCurrencyCalculator(); 14 -> createBmrCalculator(); 15 -> createQuadraticCalculator()
-            16 -> createFractionCalculator(); 17 -> createCompoundInterestCalculator(); 18 -> createSpeedCalculator(); 19 -> createSettingsPage()
+            16 -> createFractionCalculator(); 17 -> createCompoundInterestCalculator(); 18 -> createSpeedCalculator()
+            19 -> {
+                val settingsView = createSettingsPage()
+                val container = (settingsView as? ScrollView)?.getChildAt(0) as? LinearLayout ?: (settingsView as? LinearLayout)
+                val handBtn = createActionBtn("יד דומיננטית: ${if (isRightHanded) "ימניים (תפריט בימין) 🤚" else "שמאליים (תפריט בשמאל) ✋"}", false) {
+                    isRightHanded = !isRightHanded
+                    savePreferences()
+                    updateHandednessLayout()
+                    switchTab(19)
+                }
+                container?.addView(handBtn)
+                settingsView
+            }
             else -> createBasicCalculator()
         }
         contentFrame.addView(view)
@@ -285,12 +322,13 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private fun createScientificCalculator(): View = createCalculatorLayout(listOf(listOf("sin", "cos", "tan", "log", "ln"), listOf("√", "x²", "x³", "x^y", "!"), listOf("π", "e", "(", ")", "÷"), listOf("7", "8", "9", "%", "×"), listOf("4", "5", "6", "MC", "−"), listOf("1", "2", "3", "MR", "+"), listOf("AC", "0", ".", "⌫", "=")), isGrid5x7 = true)
 
     private fun createCalculatorLayout(rows: List<List<String>>, isGrid5x7: Boolean = false): View {
+        keypadButtons.clear()
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutDirection = View.LAYOUT_DIRECTION_LTR; setPadding(dp(14f), dp(0f), dp(14f), dp(14f)) }
         val displayCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.BOTTOM or Gravity.END; setPadding(dp(20f), dp(16f), dp(20f), dp(16f)); background = GradientDrawable().apply { setColor(Utils.lightenColor(bgColor, 0.07f)); cornerRadius = dp(28f).toFloat(); setStroke(dp(1.5f), Color.argb(70, Color.red(primaryColor), Color.green(primaryColor), Color.blue(primaryColor))) } }
 
         memoryIndicator = TextView(this).apply { text = if (memoryValue != 0.0) "M = ${Utils.formatResult(memoryValue, calcPrecision)}" else ""; setTextColor(primaryColor); textSize = 12f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.START }
         expressionView = TextView(this).apply { text = ""; setTextColor(Color.parseColor("#8A94A8")); setAutoSizeTextTypeUniformWithConfiguration(12, 22, 2, TypedValue.COMPLEX_UNIT_SP); gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f) }
-        currentView = TextView(this).apply { text = if(currentInput.isEmpty()) "0" else currentInput; setTextColor(Color.WHITE); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); setAutoSizeTextTypeUniformWithConfiguration(22, 56, 2, TypedValue.COMPLEX_UNIT_SP); gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f) }
+        currentView = TextView(this).apply { text = if(currentInput.isEmpty()) "0" else currentInput; setTextColor(Color.WHITE); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); setAutoSizeTextTypeUniformWithConfiguration(18, 56, 2, TypedValue.COMPLEX_UNIT_SP); gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 2f) }
 
         displayCard.addView(memoryIndicator); displayCard.addView(expressionView); displayCard.addView(currentView)
         root.addView(displayCard, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, if(isGrid5x7) 0.28f else 0.32f).apply { bottomMargin = dp(12f) })
@@ -319,12 +357,18 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val keypad = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for (rowSymbols in rows) {
             val rowLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (symbol in rowSymbols) { val weight = if (!isGrid5x7 && symbol == "0") 2f else 1f; rowLayout.addView(createAnimatedButton(symbol, isGrid5x7), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) }) }
+            for (symbol in rowSymbols) {
+                val weight = if (!isGrid5x7 && symbol == "0") 2f else 1f
+                val btn = createAnimatedButton(symbol, isGrid5x7)
+                keypadButtons[symbol] = btn
+                rowLayout.addView(btn, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) })
+            }
             keypad.addView(rowLayout, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
         root.addView(keypad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, if(isGrid5x7) 0.72f else 0.68f)); return root
     }
-        private fun createAnimatedButton(symbol: String, isSmall: Boolean): TextView {
+
+    private fun createAnimatedButton(symbol: String, isSmall: Boolean): TextView {
         val isMem = symbol in listOf("MC", "MR", "M+", "M-"); val isOp = symbol in listOf("÷", "×", "−", "+", "sin", "cos", "tan", "log", "ln", "√", "x²", "x³", "x^y", "!", "π", "e", "(", ")")
         val defaultBg = when { symbol == "AC" -> Utils.lightenColor(Color.RED, 0.2f); symbol == "=" -> primaryColor; isMem -> Utils.lightenColor(bgColor, 0.03f); symbol in listOf("⌫", "%", "÷", "×", "−", "+") -> Utils.lightenColor(bgColor, 0.1f); else -> Utils.lightenColor(bgColor, 0.06f) }
         val strokeColor = if (symbol == "=" || symbol == "AC") Color.TRANSPARENT else Utils.lightenColor(bgColor, 0.15f)
@@ -349,6 +393,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     }
 
     private fun onEquationButtonClick(s: String) {
+        if (MiniGameEngine.isActive && MiniGameEngine.onKeyPress(this, s)) return
         if (justCalculated && s !in listOf("÷", "×", "−", "+", "^", "%")) { currentInput = ""; justCalculated = false }
         justCalculated = false
         when (s) {
@@ -364,7 +409,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         val res = Utils.evalMathExpression(currentInput)
                         val formatted = Utils.formatResult(res, calcPrecision)
                         expressionView?.text = "$currentInput ="
-                        historyList.add(0, "$currentInput =$formatted")
+                        historyList.add(0, "$currentInput = $formatted")
                         savePreferences(); currentInput = formatted; justCalculated = true
                     } catch (e: Exception) { currentInput = "Error"; justCalculated = true }
                 }
@@ -381,9 +426,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             }
         }
     }
-
-    // --- מנוע המרות אוניברסלי משודרג עם החלפה מהירה (Swap) וחישוב חי ---
-    private fun createUniversalConverter(
+        private fun createUniversalConverter(
         pickerTitle: String,
         itemsProvider: () -> List<String>,
         getFrom: () -> String,
@@ -467,7 +510,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root.addView(fromBtn); root.addView(swapContainer); root.addView(toBtn); root.addView(amountInput); root.addView(calcBtn); root.addView(resCard)
         scroll.addView(root); return scroll
     }
-        fun createCurrencyCalculator(): View = createUniversalConverter(
+
+    fun createCurrencyCalculator(): View = createUniversalConverter(
         pickerTitle = "בחר מטבע",
         itemsProvider = { allCurrencies },
         getFrom = { fromCurrency },
@@ -554,7 +598,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         }
     }
 
-    // --- 2 המחשבונים החדשים ---
     private fun createSpeedCalculator(): View {
         val units = mapOf(
             "קמ״ש (km/h)" to (1.0 / 3.6), "מטר לשנייה (m/s)" to 1.0, "מייל לשעה (mph)" to 0.44704,
