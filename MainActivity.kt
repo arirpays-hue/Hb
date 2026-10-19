@@ -55,8 +55,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     
     private lateinit var soundPool: SoundPool
-    private var sound1Id = 0
-    private var sound2Id = 0
+    var soundIds = IntArray(13)
 
     var useHaptic = true; var useSound = true; var keepScreenOn = false; var soundType = 0
     var calcPrecision = 8; var buttonCornerStyle = 24f
@@ -85,9 +84,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE); loadPreferences()
         tts = TextToSpeech(this, this)
         
-        soundPool = SoundPool.Builder().setMaxStreams(5).build()
-        val r1 = resources.getIdentifier("sound1", "raw", packageName); if (r1 != 0) sound1Id = soundPool.load(this, r1, 1)
-        val r2 = resources.getIdentifier("sound2", "raw", packageName); if (r2 != 0) sound2Id = soundPool.load(this, r2, 1)
+        val audioAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+            
+        soundPool = SoundPool.Builder().setMaxStreams(10).setAudioAttributes(audioAttributes).build()
+        for (i in 1..12) {
+            val rId = resources.getIdentifier("sound$i", "raw", packageName)
+            if (rId != 0) soundIds[i] = soundPool.load(this, rId, 1)
+        }
 
         thread {
             try {
@@ -159,8 +165,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         if (useSound) { 
             if (soundType == 0) view.playSoundEffect(SoundEffectConstants.CLICK) 
-            else if (soundType == 1 && sound1Id != 0) soundPool.play(sound1Id, 1f, 1f, 0, 0, 1f)
-            else if (soundType == 2 && sound2Id != 0) soundPool.play(sound2Id, 1f, 1f, 0, 0, 1f)
+            else if (soundType in 1..12 && soundIds[soundType] != 0) soundPool.play(soundIds[soundType], 1f, 1f, 0, 0, 1f)
         } 
     }
 
@@ -206,8 +211,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         contentFrame.addView(view)
     }
 
-    private var currentInput = ""; private var justCalculated = false
-    private var expressionView: TextView? = null; private var currentView: TextView? = null; private var memoryIndicator: TextView? = null
+    var currentInput = ""; var justCalculated = false
+    var expressionView: TextView? = null; var currentView: TextView? = null; var memoryIndicator: TextView? = null
 
     private fun createBasicCalculator(): View = createCalculatorLayout(listOf(listOf("MC", "MR", "M+", "M-"), listOf("AC", "⌫", "%", "÷"), listOf("7", "8", "9", "×"), listOf("4", "5", "6", "−"), listOf("1", "2", "3", "+"), listOf("(", "0", ".", "=")))
     private fun createScientificCalculator(): View = createCalculatorLayout(listOf(listOf("sin", "cos", "tan", "log", "ln"), listOf("√", "x²", "x³", "x^y", "!"), listOf("π", "e", "(", ")", "÷"), listOf("7", "8", "9", "%", "×"), listOf("4", "5", "6", "MC", "−"), listOf("1", "2", "3", "MR", "+"), listOf("AC", "0", ".", "⌫", "=")), isGrid5x7 = true)
@@ -273,13 +278,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             "AC" -> { currentInput = ""; expressionView?.text = "" }; "⌫" -> { if (currentInput.isNotEmpty()) currentInput = currentInput.dropLast(1) }
             "sin", "cos", "tan", "log", "ln" -> { currentInput += "$s(" }; "√" -> { currentInput += "√(" }; "x²" -> { currentInput += "^2" }; "x³" -> { currentInput += "^3" }; "x^y" -> { currentInput += "^" }
             "=" -> {
-                if (currentInput == "123456789") {
-                    justCalculated = true
-                    try { val resId = resources.getIdentifier("cheer", "raw", packageName); if (resId != 0) android.media.MediaPlayer.create(this@MainActivity, resId)?.start() } catch (e: Exception) {}
-                    val orig = bgColor
-                    thread { val colors = listOf(Color.RED, Color.GREEN, Color.BLUE, Color.MAGENTA, Color.YELLOW, Color.CYAN); for (i in 1..15) { Handler(Looper.getMainLooper()).post { mainContent?.setBackgroundColor(colors.random()) }; Thread.sleep(100) }; Handler(Looper.getMainLooper()).post { mainContent?.setBackgroundColor(orig) } }
-                    return
-                }
+                // הקריאה שמחפשת הפתעות (ביצי פסחא) במקום לחשב
+                if (checkEasterEggs(currentInput)) return
+                
                 if (currentInput.isNotEmpty()) {
                     try {
                         val res = Utils.evalMathExpression(currentInput)
