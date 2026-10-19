@@ -1,5 +1,5 @@
 package com.example.calculator
- 
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.PictureInPictureParams
@@ -119,13 +119,12 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         menuBtn = TextView(this).apply { text = "☰"; setTextColor(Color.WHITE); textSize = 28f; setPadding(0, 0, dp(16f), 0); setOnClickListener { feedback(it); openDrawer() } }
         titleText = TextView(this).apply { text = "מחשבון פרימיום"; setTextColor(Color.WHITE); textSize = 22f; typeface = Typeface.DEFAULT_BOLD; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) }
         
-        val micBtn = TextView(this).apply { text = "🎤"; textSize = 22f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(16f), dp(8f)); setOnClickListener { feedback(it); startVoiceRecognition() } }
         val pipBtn = TextView(this).apply { text = "🧮"; textSize = 22f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(16f), dp(8f)); setOnClickListener { feedback(it)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational(3, 4)).build()) } else { Toast.makeText(this@MainActivity, "חלון צף נתמך רק באנדרואיד 8 ומעלה", Toast.LENGTH_SHORT).show() }
         } }
         val historyBtn = TextView(this).apply { text = "🕒"; textSize = 20f; gravity = Gravity.CENTER; setPadding(dp(8f), dp(8f), dp(8f), dp(8f)); setOnClickListener { feedback(it); showHistoryDialog() } }
 
-        topHeader.addView(menuBtn); topHeader.addView(titleText); topHeader.addView(micBtn); topHeader.addView(pipBtn); topHeader.addView(historyBtn)
+        topHeader.addView(menuBtn); topHeader.addView(titleText); topHeader.addView(pipBtn); topHeader.addView(historyBtn)
         contentFrame = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f) }
         mainContent?.addView(topHeader); mainContent?.addView(contentFrame)
 
@@ -244,7 +243,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         root.addView(displayCard, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, if(isGrid5x7) 0.28f else 0.32f).apply { bottomMargin = dp(12f) })
 
         var startX = 0f; var startY = 0f
-        displayCard.setOnTouchListener { _, event ->
+        displayCard.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> { startX = event.x; startY = event.y; true }
                 MotionEvent.ACTION_UP -> {
@@ -255,6 +254,9 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                         val textToRead = if(currentInput.isEmpty() || currentInput == "0") "אפס" else currentInput
                         tts?.speak(textToRead, TextToSpeech.QUEUE_FLUSH, null, null)
                         Toast.makeText(this@MainActivity, "מקריא... 🔊", Toast.LENGTH_SHORT).show()
+                    } else if (dy < -50f && Math.abs(dy) > Math.abs(dx)) {
+                        feedback(v)
+                        startVoiceRecognition()
                     } else if (Math.abs(dx) < 10f && Math.abs(dy) < 10f) {
                         copyToClipboard(currentInput)
                     }
@@ -356,25 +358,6 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         animator.start()
     }
 
-    // --- מערכת ההחלקה (Swipe) וההקלדה הקולית (Speech to Text) ---
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (currentTabIndex == 0 || currentTabIndex == 1) {
-            when (ev.action) {
-                MotionEvent.ACTION_DOWN -> { swipeStartY = ev.y; swipeStartX = ev.x }
-                MotionEvent.ACTION_UP -> {
-                    val dy = ev.y - swipeStartY; val dx = ev.x - swipeStartX
-                    val screenHeight = resources.displayMetrics.heightPixels
-                    // זיהוי החלקה מהירה מלמטה (מהחצי התחתון של המסך) כלפי מעלה
-                    if (swipeStartY > screenHeight * 0.5f && dy < -150f && Math.abs(dy) > Math.abs(dx)) {
-                        mainContent?.let { feedback(it) }
-                        startVoiceRecognition()
-                    }
-                }
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
     private val VOICE_REQUEST_CODE = 999
     
     private fun startVoiceRecognition() {
@@ -396,19 +379,30 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
                 
                 var spoken = matches[0].lowercase()
                 
-                val ops = mapOf(" פלוס " to "+", " ועוד " to "+", " פחות " to "−", " מינוס " to "−", " כפול " to "×", " לחלק ל" to "÷", " חלקי " to "÷", " נקודה " to ".", "פלוס" to "+", "ועוד" to "+", "פחות" to "−", "מינוס" to "−", "כפול" to "×", "לחלק ל" to "÷", "חלקי" to "÷", "נקודה" to ".")
-                val nums = mapOf("אפס" to "0", "אחת" to "1", "אחד" to "1", "שתיים" to "2", "שניים" to "2", "שלוש" to "3", "שלושה" to "3", "ארבע" to "4", "ארבעה" to "4", "חמש" to "5", "חמישה" to "5", "שש" to "6", "שישה" to "6", "שבע" to "7", "שבעה" to "7", "שמונה" to "8", "תשע" to "9", "תשעה" to "9", "עשר" to "10", "עשרה" to "10")
+                val ops = mapOf(
+                    " פלוס " to "+", " ועוד " to "+", " פחות " to "−", " מינוס " to "−", 
+                    " כפול " to "×", " פעמים " to "×", " לחלק ל" to "÷", " חלקי " to "÷", 
+                    " נקודה " to ".", " בחזקת " to "^", " בחזקה " to "^", " שורש " to "√", 
+                    " אחוז " to "%", " אחוזים " to "%", " פתח סוגריים " to "(", 
+                    " סגור סוגריים " to ")", " פאי " to "π", " עצרת " to "!",
+                    "פלוס" to "+", "ועוד" to "+", "פחות" to "−", "מינוס" to "−", 
+                    "כפול" to "×", "פעמים" to "×", "לחלק ל" to "÷", "חלקי" to "÷", 
+                    "נקודה" to ".", "בחזקת" to "^", "בחזקה" to "^", "שורש" to "√", 
+                    "אחוזים" to "%", "אחוז" to "%", "פאי" to "π", "עצרת" to "!"
+                )
+                
+                val nums = mapOf("אפס" to "0", "אחת" to "1", "אחד" to "1", "שתיים" to "2", "שניים" to "2", "שלוש" to "3", "שלושה" to "3", "ארבע" to "4", "ארבעה" to "4", "חמש" to "5", "חמישה" to "5", "שש" to "6", "שישה" to "6", "שבע" to "7", "שבעה" to "7", "שמונה" to "8", "תשע" to "9", "תשעה" to "9", "עשר" to "10", "עשרה" to "10", "אחת עשרה" to "11", "אחד עשר" to "11", "שתים עשרה" to "12", "שנים עשר" to "12", "שלוש עשרה" to "13", "שלושה עשר" to "13", "ארבע עשרה" to "14", "ארבעה עשר" to "14", "חמש עשרה" to "15", "חמישה עשר" to "15", "שש עשרה" to "16", "שישה עשר" to "16", "שבע עשרה" to "17", "שבעה עשר" to "17", "שמונה עשרה" to "18", "שמונה עשר" to "18", "תשע עשרה" to "19", "תשעה עשר" to "19", "עשרים" to "20", "שלושים" to "30", "ארבעים" to "40", "חמישים" to "50", "שישים" to "60", "שבעים" to "70", "שמונים" to "80", "תשעים" to "90", "מאה" to "100")
                 
                 for ((w, s) in ops) spoken = spoken.replace(w, s)
                 for ((w, s) in nums) spoken = spoken.replace(Regex("\\b$w\\b"), s) 
                 
                 spoken = spoken.replace(" ", "")
-                val cleanMath = spoken.replace("-", "−").replace(Regex("[^0-9.−+×÷]"), "")
+                val cleanMath = spoken.replace("-", "−").replace(Regex("[^0-9.−+×÷^√%!()π!]"), "")
                 
                 currentInput += cleanMath
                 currentView?.text = if (currentInput.isEmpty()) "0" else currentInput
                 
-                if (cleanMath.any { it in listOf('+', '−', '×', '÷') } && cleanMath.lastOrNull()?.isDigit() == true) {
+                if (cleanMath.any { it in listOf('+', '−', '×', '÷', '^', '√', '%') } && cleanMath.lastOrNull()?.isDigit() == true) {
                     onEquationButtonClick("=")
                 }
             }
