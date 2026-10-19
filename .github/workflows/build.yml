@@ -35,7 +35,10 @@ jobs:
 
           cp *.kt app/src/main/java/com/example/calculator/ 2>/dev/null || true
 
+          # הורדת צליל ההפתעה וצלילי המקשים ישירות לתיקיית raw בתוך האפליקציה
           wget -qO app/src/main/res/raw/cheer.mp3 "https://www.myinstants.com/media/sounds/kids_cheering.mp3" || true
+          wget -qO app/src/main/res/raw/sound1.mp3 "https://www.myinstants.com/media/sounds/iphone-original-keyboard-sound.mp3" || true
+          wget -qO app/src/main/res/raw/sound2.mp3 "https://www.myinstants.com/media/sounds/mouse-click-sound.mp3" || true
 
           cat << 'EOF' > app/src/main/res/drawable/ic_calc_tile.xml
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
