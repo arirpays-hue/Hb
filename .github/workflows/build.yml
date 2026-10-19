@@ -27,9 +27,8 @@ jobs:
       - name: Generate Lightweight Native Kotlin Project
         run: |
           mkdir -p /tmp/audio_backup
-          cp *.mp3 /tmp/audio_backup/ 2>/dev/null || true
-          cp app/src/main/res/raw/*.mp3 /tmp/audio_backup/ 2>/dev/null || true
-          cp res/raw/*.mp3 /tmp/audio_backup/ 2>/dev/null || true
+          # פקודת חיפוש חכמה הסורקת את כל התיקיות במאגר ואוספת את כל הצלילים ללא יוצא מן הכלל
+          find . -type f -name "*.mp3" -exec cp {} /tmp/audio_backup/ \; 2>/dev/null || true
 
           mkdir -p app/src/main/java/com/example/calculator
           mkdir -p app/src/main/res/drawable
@@ -192,7 +191,7 @@ jobs:
           android {
               namespace 'com.example.calculator'
               compileSdk 34
-              defaultConfig { applicationId "com.example.calculator"; minSdk 26; targetSdk 34; versionCode 12; versionName "12.0-Pro" }
+              defaultConfig { applicationId "com.example.calculator"; minSdk 26; targetSdk 34; versionCode 13; versionName "13.0-Pro" }
               compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
               kotlinOptions { jvmTarget = '17' }
           }
