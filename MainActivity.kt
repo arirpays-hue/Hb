@@ -56,6 +56,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     
     private lateinit var soundPool: SoundPool
     var soundIds = IntArray(13)
+    var acSoundId = 0 // משתנה חדש לשמירת הצליל של כפתור המחיקה
 
     var useHaptic = true; var useSound = true; var keepScreenOn = false; var soundType = 0
     var calcPrecision = 8; var buttonCornerStyle = 24f
@@ -94,6 +95,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
             val rId = resources.getIdentifier("sound$i", "raw", packageName)
             if (rId != 0) soundIds[i] = soundPool.load(this, rId, 1)
         }
+        
+        // טעינת צליל ה-AC במיוחד
+        val acResId = resources.getIdentifier("ac_sound", "raw", packageName)
+        if (acResId != 0) acSoundId = soundPool.load(this, acResId, 1)
 
         thread {
             try {
@@ -161,13 +166,16 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
     fun applyTheme() { window.statusBarColor = bgColor; window.navigationBarColor = bgColor; mainContent?.setBackgroundColor(bgColor); drawerMenu?.setBackgroundColor(Utils.lightenColor(bgColor, 0.06f)); updateDrawerSelection(); switchTab(currentTabIndex) }
     private fun openDrawer() { val drawer = rootFrame.getChildAt(2); dimView.visibility = View.VISIBLE; dimView.animate().alpha(1f).setDuration(250).start(); drawer.animate().translationX(0f).setDuration(250).setInterpolator(android.view.animation.DecelerateInterpolator()).start(); isDrawerOpen = true }
     private fun closeDrawer() { val drawer = rootFrame.getChildAt(2); dimView.animate().alpha(0f).setDuration(250).withEndAction { dimView.visibility = View.GONE }.start(); drawer.animate().translationX(dp(280f).toFloat()).setDuration(250).setInterpolator(android.view.animation.AccelerateInterpolator()).start(); isDrawerOpen = false }
-        fun feedback(view: View) { 
+        fun feedback(view: View, symbol: String = "") { 
         if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         if (useSound) { 
-            if (soundType == 0) view.playSoundEffect(SoundEffectConstants.CLICK) 
-            else if (soundType in 1..12) {
+            if (symbol == "AC" && acSoundId != 0) {
+                soundPool.play(acSoundId, 1f, 1f, 0, 0, 1f)
+            } else if (soundType == 0) {
+                view.playSoundEffect(SoundEffectConstants.CLICK) 
+            } else if (soundType in 1..12) {
                 if (soundIds[soundType] != 0) soundPool.play(soundIds[soundType], 1f, 1f, 0, 0, 1f)
-                else Toast.makeText(this, "⚠️ קובץ sound${soundType}.mp3 לא נמצא באפליקציה!", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this, "⚠️ קובץ sound${soundType}.mp3 לא נמצא!", Toast.LENGTH_SHORT).show()
             }
         } 
     }
@@ -267,7 +275,7 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         val shape = GradientDrawable().apply { this.shape = GradientDrawable.RECTANGLE; cornerRadius = dp(buttonCornerStyle).toFloat(); setColor(defaultBg); setStroke(dp(1.5f), strokeColor) }
         return TextView(this).apply {
             text = symbol; setTextColor(textColor); setAutoSizeTextTypeUniformWithConfiguration(10, if(isSmall) 22 else 28, 2, TypedValue.COMPLEX_UNIT_SP); typeface = if (symbol == "=" || isOp || isMem) Typeface.DEFAULT_BOLD else Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER; background = RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")), shape, null); isClickable = true
-            setOnTouchListener { v, e -> when (e.actionMasked) { MotionEvent.ACTION_DOWN -> { feedback(v); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) } }; false }
+            setOnTouchListener { v, e -> when (e.actionMasked) { MotionEvent.ACTION_DOWN -> { feedback(v, symbol); v.animate().scaleX(0.85f).scaleY(0.85f).setDuration(80).start() }; MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.animate().scaleX(1f).scaleY(1f).setDuration(150).start(); if (e.actionMasked == MotionEvent.ACTION_UP) onEquationButtonClick(symbol) } }; false }
         }
     }
 
