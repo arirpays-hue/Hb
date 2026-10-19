@@ -41,9 +41,8 @@ jobs:
           cp *.kt app/src/main/java/com/example/calculator/ 2>/dev/null || true
           cp /tmp/audio_backup/*.mp3 app/src/main/res/raw/ 2>/dev/null || true
 
-          wget -nc -qO app/src/main/res/raw/cheer.mp3 "https://www.myinstants.com/media/sounds/kids_cheering.mp3" || true
-          wget -nc -qO app/src/main/res/raw/sound1.mp3 "https://www.myinstants.com/media/sounds/iphone-original-keyboard-sound.mp3" || true
-          wget -nc -qO app/src/main/res/raw/sound2.mp3 "https://www.myinstants.com/media/sounds/mouse-click-sound.mp3" || true
+          # מוחק אוטומטית קבצים שאינם תקינים (למניעת קריסות)
+          find app/src/main/res/raw/ -type f ! -name "*.mp3" -delete || true
 
           cat << 'EOF' > app/src/main/res/drawable/ic_calc_tile.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -104,8 +103,7 @@ jobs:
                   android:textSize="22sp"/>
           </LinearLayout>
           EOF
-
-          cat << 'EOF' > app/src/main/res/drawable/widget_bg.xml
+                    cat << 'EOF' > app/src/main/res/drawable/widget_bg.xml
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android">
               <solid android:color="#D91E2433"/>
@@ -137,7 +135,8 @@ jobs:
               }
           }
           EOF
-                    cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_launcher_background.xml
           <?xml version="1.0" encoding="utf-8"?>
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="108dp"
@@ -193,7 +192,7 @@ jobs:
           android {
               namespace 'com.example.calculator'
               compileSdk 34
-              defaultConfig { applicationId "com.example.calculator"; minSdk 26; targetSdk 34; versionCode 10; versionName "10.0-Pro" }
+              defaultConfig { applicationId "com.example.calculator"; minSdk 26; targetSdk 34; versionCode 12; versionName "12.0-Pro" }
               compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
               kotlinOptions { jvmTarget = '17' }
           }
