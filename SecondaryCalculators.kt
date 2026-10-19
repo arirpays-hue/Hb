@@ -5,34 +5,18 @@ import android.app.DatePickerDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.widget.*
+import java.net.URL
 import java.util.*
+import kotlin.concurrent.thread
 import kotlin.math.pow
 import kotlin.math.sqrt
-
-// --- פונקציות עזר לבחירת צבעים ---
-fun createColorWheelPicker(context: android.content.Context, initialColor: Int, onColorSelected: (Int) -> Unit): View {
-    val container = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, 20, 0, 20) }
-    val colorPreview = View(context).apply { layoutParams = LinearLayout.LayoutParams(150, 150).apply { bottomMargin = 30 }; background = GradientDrawable().apply { cornerRadius = 75f; setColor(initialColor); setStroke(3, Color.WHITE) } }
-    val hsv = FloatArray(3); Color.colorToHSV(initialColor, hsv)
-    fun updateColor() { val c = Color.HSVToColor(hsv); colorPreview.background = GradientDrawable().apply { cornerRadius = 75f; setColor(c); setStroke(3, Color.WHITE) }; onColorSelected(c) }
-    fun createSlider(label: String, max: Int, initial: Int, onUpdate: (Int) -> Unit): View {
-        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 20 }; gravity = Gravity.CENTER_VERTICAL }
-        val tv = TextView(context).apply { text = label; setTextColor(Color.WHITE); layoutParams = LinearLayout.LayoutParams(100, LinearLayout.LayoutParams.WRAP_CONTENT) }
-        val sb = SeekBar(context).apply { this.max = max; progress = initial; layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f); setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener { override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { onUpdate(progress); updateColor() }; override fun onStartTrackingTouch(seekBar: SeekBar?) {}; override fun onStopTrackingTouch(seekBar: SeekBar?) {} }) }
-        row.addView(tv); row.addView(sb); return row
-    }
-    container.addView(colorPreview)
-    container.addView(createSlider("גוון", 360, hsv[0].toInt()) { hsv[0] = it.toFloat() })
-    container.addView(createSlider("רוויה", 100, (hsv[1] * 100).toInt()) { hsv[1] = it / 100f })
-    container.addView(createSlider("בהירות", 100, (hsv[2] * 100).toInt()) { hsv[2] = it / 100f })
-    return container
-}
 
 // --- מחשבונים משניים ---
 fun MainActivity.createVatCalculator(): View {
@@ -115,7 +99,6 @@ fun MainActivity.createDiscountCalculator(): View {
     val tw = object : TextWatcher { override fun afterTextChanged(s: Editable?) { calc() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} }
     price.addTextChangedListener(tw); discount.addTextChangedListener(tw); root.addView(price); root.addView(discount); root.addView(resText); return root
 }
-
 fun MainActivity.createTipCalculator(): View {
     val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
     val bill = createInputBox("סכום החשבון"); val tip = createInputBox("אחוז טיפ (%)").apply { setText("10") }; val people = createInputBox("מספר סועדים").apply { setText("1") }; val resText = createResultTextView()
@@ -159,9 +142,11 @@ fun MainActivity.createCurrencyCalculator(): View {
         val v = input.text.toString().toDoubleOrNull(); if (v == null) { resText.text = ""; return }
         thread {
             try {
-                val res = URL("https://open.er-api.com/v6/latest/${CurrencyData.getCode(locFrom)}").readText()
-                val json = JSONObject(res); val rate = json.getJSONObject("rates").getDouble(CurrencyData.getCode(locTo))
-                Handler(Looper.getMainLooper()).post { resText.text = "${Utils.formatResult(v * rate, 2)} ${CurrencyData.getCode(locTo)}" }
+                val codeFrom = if (locFrom.length >= 3) locFrom.takeLast(4).trim('(', ')') else locFrom
+                val codeTo = if (locTo.length >= 3) locTo.takeLast(4).trim('(', ')') else locTo
+                val res = URL("https://open.er-api.com/v6/latest/$codeFrom").readText()
+                val json = org.json.JSONObject(res); val rate = json.getJSONObject("rates").getDouble(codeTo)
+                Handler(Looper.getMainLooper()).post { resText.text = "${Utils.formatResult(v * rate, 2)} $codeTo" }
             } catch (e: Exception) { Handler(Looper.getMainLooper()).post { resText.text = "שגיאת רשת" } }
         }
     }
@@ -170,6 +155,7 @@ fun MainActivity.createCurrencyCalculator(): View {
     input.addTextChangedListener(object : TextWatcher { override fun afterTextChanged(s: Editable?) { calc() }; override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}; override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {} })
     root.addView(btnFrom); root.addView(btnTo); root.addView(input); root.addView(resText); return root
 }
+
 fun MainActivity.createBmrCalculator(): View {
     val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(20f), dp(20f), dp(20f)) }
     var isMale = true
@@ -217,7 +203,6 @@ fun MainActivity.createFractionCalculator(): View {
     root.addView(n1); root.addView(d1); root.addView(opBtn); root.addView(n2); root.addView(d2); root.addView(btn); root.addView(resText); return root
 }
 
-// --- תפריט ההגדרות המשופר (כולל אנימציות, צבעים וסאונדים) ---
 fun MainActivity.createSettingsPage(): View {
     val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
     
@@ -231,6 +216,8 @@ fun MainActivity.createSettingsPage(): View {
     var editingTarget = 0; val targetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16f); bottomMargin = dp(14f) } }
     lateinit var btnEditPrimary: TextView; lateinit var btnEditBg: TextView; lateinit var pickerContainer: FrameLayout
     fun refreshTargetButtons() { btnEditPrimary.background = GradientDrawable().apply { setColor(if (editingTarget == 0) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 0) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditPrimary.setTextColor(if (editingTarget == 0) Color.parseColor("#08090C") else Color.WHITE); btnEditBg.background = GradientDrawable().apply { setColor(if (editingTarget == 1) primaryColor else Utils.lightenColor(bgColor, 0.06f)); cornerRadius = dp(14f).toFloat(); setStroke(dp(2f), if (editingTarget == 1) Color.WHITE else Utils.lightenColor(bgColor, 0.15f)) }; btnEditBg.setTextColor(if (editingTarget == 1) Color.parseColor("#08090C") else Color.WHITE) }
+    
+    // קריאה לפונקציה מתוך ColorWheelView.kt (ללא איחוד קבצים!)
     fun loadColorPicker() { refreshTargetButtons(); pickerContainer.removeAllViews(); pickerContainer.addView(createColorWheelPicker(this, if (editingTarget == 0) primaryColor else bgColor) { newColor -> if (editingTarget == 0) primaryColor = newColor else bgColor = newColor; savePreferences(); applyTheme(); refreshTargetButtons() }) }
     btnEditPrimary = TextView(this).apply { text = "🎨 צבע נושא מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 0; loadColorPicker() } }
     btnEditBg = TextView(this).apply { text = "🌌 צבע רקע מותאם"; gravity = Gravity.CENTER; textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(12f), 0, dp(12f)); layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(6f) }; setOnClickListener { feedback(it); editingTarget = 1; loadColorPicker() } }
@@ -238,13 +225,11 @@ fun MainActivity.createSettingsPage(): View {
     
     val titleSettings = TextView(this).apply { text = "הגדרות מערכת נוספות"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8f), 0, dp(10f)) }
     
-    // מתג הפעלת אנימציות החדש
     val animBtn = createActionBtn(if (useAnimations) "אנימציות מתקדמות: מופעל ✨" else "אנימציות מתקדמות: כבוי ⚡", false) { useAnimations = !useAnimations; savePreferences(); applyTheme() }
-    
     val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
     val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
     
-    val soundNames = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶", "צליל 3 ⌨️", "צליל 4 🔔", "צליל 5 🔫", "צליל 6 💧", "צליל 7 🖱️", "צליל 8 🎈", "צליל 9 🥁", "צליל 10 🪙", "צליל 11 🪀", "צליל 12 🤖")
+    val soundNames = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶")
     val sndTypeBtn = createActionBtn("סוג צליל: ${soundNames.getOrElse(soundType) { "מערכת 📱" }}", false) { AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("בחר צליל").setSingleChoiceItems(soundNames, soundType) { d, w -> soundType = w; savePreferences(); applyTheme(); d.dismiss() }.show() }
     
     val scrBtn = createActionBtn(if (keepScreenOn) "מסך תמיד דולק: מופעל 🔆" else "מסך תמיד דולק: כבוי 🌙", false) { keepScreenOn = !keepScreenOn; updateKeepScreenOn(); savePreferences(); applyTheme() }
@@ -253,6 +238,5 @@ fun MainActivity.createSettingsPage(): View {
     val precBtn = createActionBtn("דיוק עשרוני: $calcPrecision ספרות ⚙️", false) { calcPrecision = if (calcPrecision >= 10) 2 else calcPrecision + 2; savePreferences(); applyTheme() }
     
     root.addView(titleThemes); root.addView(themeScroll); root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings)
-    root.addView(animBtn) // הכפתור החדש שלנו בפנים
-    root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
+    root.addView(animBtn); root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
 }
