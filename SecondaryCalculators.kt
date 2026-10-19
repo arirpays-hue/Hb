@@ -217,6 +217,7 @@ fun MainActivity.createFractionCalculator(): View {
     root.addView(n1); root.addView(d1); root.addView(opBtn); root.addView(n2); root.addView(d2); root.addView(btn); root.addView(resText); return root
 }
 
+// --- תפריט ההגדרות המשופר (כולל אנימציות, צבעים וסאונדים) ---
 fun MainActivity.createSettingsPage(): View {
     val scroll = ScrollView(this); val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20f), dp(0f), dp(20f), dp(24f)) }
     
@@ -237,12 +238,13 @@ fun MainActivity.createSettingsPage(): View {
     
     val titleSettings = TextView(this).apply { text = "הגדרות מערכת נוספות"; setTextColor(Color.WHITE); textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8f), 0, dp(10f)) }
     
+    // מתג הפעלת אנימציות החדש
     val animBtn = createActionBtn(if (useAnimations) "אנימציות מתקדמות: מופעל ✨" else "אנימציות מתקדמות: כבוי ⚡", false) { useAnimations = !useAnimations; savePreferences(); applyTheme() }
+    
     val vibBtn = createActionBtn(if (useHaptic) "רטט בלחיצה: מופעל 🟢" else "רטט בלחיצה: כבוי 🔴", false) { useHaptic = !useHaptic; savePreferences(); applyTheme() }
     val sndBtn = createActionBtn(if (useSound) "צלילי הקשה: מופעל 🔊" else "צלילי הקשה: כבוי 🔇", false) { useSound = !useSound; savePreferences(); applyTheme() }
     
-    // מערך שמציג כעת רק 2 צלילים לבחירה (ומערכת)
-    val soundNames = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶")
+    val soundNames = arrayOf("מערכת 📱", "צליל 1 🎵", "צליל 2 🎶", "צליל 3 ⌨️", "צליל 4 🔔", "צליל 5 🔫", "צליל 6 💧", "צליל 7 🖱️", "צליל 8 🎈", "צליל 9 🥁", "צליל 10 🪙", "צליל 11 🪀", "צליל 12 🤖")
     val sndTypeBtn = createActionBtn("סוג צליל: ${soundNames.getOrElse(soundType) { "מערכת 📱" }}", false) { AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("בחר צליל").setSingleChoiceItems(soundNames, soundType) { d, w -> soundType = w; savePreferences(); applyTheme(); d.dismiss() }.show() }
     
     val scrBtn = createActionBtn(if (keepScreenOn) "מסך תמיד דולק: מופעל 🔆" else "מסך תמיד דולק: כבוי 🌙", false) { keepScreenOn = !keepScreenOn; updateKeepScreenOn(); savePreferences(); applyTheme() }
@@ -251,5 +253,6 @@ fun MainActivity.createSettingsPage(): View {
     val precBtn = createActionBtn("דיוק עשרוני: $calcPrecision ספרות ⚙️", false) { calcPrecision = if (calcPrecision >= 10) 2 else calcPrecision + 2; savePreferences(); applyTheme() }
     
     root.addView(titleThemes); root.addView(themeScroll); root.addView(targetRow); root.addView(pickerContainer); root.addView(titleSettings)
-    root.addView(animBtn); root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
+    root.addView(animBtn) // הכפתור החדש שלנו בפנים
+    root.addView(vibBtn); root.addView(sndBtn); root.addView(sndTypeBtn); root.addView(scrBtn); root.addView(shapeBtn); root.addView(precBtn); scroll.addView(root); return scroll
 }
