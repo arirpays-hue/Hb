@@ -84,9 +84,8 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         prefs = getSharedPreferences("CalcProPrefs", Context.MODE_PRIVATE); loadPreferences()
         tts = TextToSpeech(this, this)
         
-        // תיקון קריטי: מעבר לערוץ המדיה כדי להבטיח השמעה
         val audioAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
             
@@ -166,7 +165,10 @@ class MainActivity : Activity(), TextToSpeech.OnInitListener {
         if (useHaptic) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         if (useSound) { 
             if (soundType == 0) view.playSoundEffect(SoundEffectConstants.CLICK) 
-            else if (soundType in 1..12 && soundIds[soundType] != 0) soundPool.play(soundIds[soundType], 1f, 1f, 0, 0, 1f)
+            else if (soundType in 1..12) {
+                if (soundIds[soundType] != 0) soundPool.play(soundIds[soundType], 1f, 1f, 0, 0, 1f)
+                else Toast.makeText(this, "⚠️ קובץ sound${soundType}.mp3 לא נמצא באפליקציה!", Toast.LENGTH_SHORT).show()
+            }
         } 
     }
 
