@@ -20,7 +20,6 @@ object MiniGameEngine {
     private var savedTextSizeSp: Float = 38f
 
     private val tttBoard = Array(9) { "" }
-
     private var invaderScore = 0
     private var invaderTrack = mutableListOf<String>()
     private val invaderSymbols = listOf("+", "−", "×", "÷", "sin", "cos", "tan", "√")
@@ -41,7 +40,7 @@ object MiniGameEngine {
         "🐧", "🐦", "🐤", "🦆", "🦉", "🦄", "🐝", "🐙"
     )
 
-    private fun isScientificModeActive(activity: MainActivity): Boolean {
+    fun isScientificModeActive(activity: MainActivity): Boolean {
         val sinBtn = activity.keypadButtons["sin"]
         return sinBtn != null && sinBtn.visibility == View.VISIBLE && sinBtn.isShown
     }
@@ -81,37 +80,18 @@ object MiniGameEngine {
                 var phase = 0.0
                 for (i in 0 until numSamples) {
                     val progress = i.toDouble() / numSamples
-                    val freq = if (progress < 0.45) {
-                        1100.0 + (progress / 0.45) * 1600.0
-                    } else {
-                        2700.0 - ((progress - 0.45) / 0.55) * 1300.0
-                    }
+                    val freq = if (progress < 0.45) 1100.0 + (progress / 0.45) * 1600.0
+                    else 2700.0 - ((progress - 0.45) / 0.55) * 1300.0
                     val envelope = sin(progress * Math.PI)
                     phase += 2.0 * Math.PI * freq / sampleRate
                     val sample = (sin(phase) * 0.8 + sin(phase * 2.0) * 0.2) * envelope
                     buffer[i] = (sample * Short.MAX_VALUE * 0.7).toInt().toShort()
                 }
                 val track = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(sampleRate)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(buffer.size * 2)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-                track.write(buffer, 0, buffer.size)
-                track.play()
-                Thread.sleep(durationMs.toLong() + 30)
-                track.release()
+                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(sampleRate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                    .setBufferSizeInBytes(buffer.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
+                track.write(buffer, 0, buffer.size); track.play(); Thread.sleep(durationMs.toLong() + 30); track.release()
             } catch (_: Exception) {}
         }.start()
     }
@@ -197,9 +177,7 @@ object MiniGameEngine {
             intArrayOf(0,4,8), intArrayOf(2,4,6)
         )
         for (w in wins) {
-            if (board[w[0]] == board[w[1]] && board[w[1]] == board[w[2]]) {
-                return board[w[0]]
-            }
+            if (board[w[0]] == board[w[1]] && board[w[1]] == board[w[2]]) return board[w[0]]
         }
         if (board.none { it in "1".."9" }) return "TIE"
         return null
@@ -209,14 +187,12 @@ object MiniGameEngine {
         if (free.isEmpty()) return -1
 
         for (i in free) {
-            val orig = tttBoard[i]
-            tttBoard[i] = "0"
+            val orig = tttBoard[i]; tttBoard[i] = "0"
             if (checkWinnerOnBoard(tttBoard) == "0") { tttBoard[i] = orig; return i }
             tttBoard[i] = orig
         }
         for (i in free) {
-            val orig = tttBoard[i]
-            tttBoard[i] = "×"
+            val orig = tttBoard[i]; tttBoard[i] = "×"
             if (checkWinnerOnBoard(tttBoard) == "×") { tttBoard[i] = orig; return i }
             tttBoard[i] = orig
         }
@@ -225,17 +201,11 @@ object MiniGameEngine {
             var bestScore = Int.MIN_VALUE
             val bestMoves = mutableListOf<Int>()
             for (i in free) {
-                val orig = tttBoard[i]
-                tttBoard[i] = "0"
+                val orig = tttBoard[i]; tttBoard[i] = "0"
                 val score = minimax(tttBoard, 0, false)
                 tttBoard[i] = orig
-                if (score > bestScore) {
-                    bestScore = score
-                    bestMoves.clear()
-                    bestMoves.add(i)
-                } else if (score == bestScore) {
-                    bestMoves.add(i)
-                }
+                if (score > bestScore) { bestScore = score; bestMoves.clear(); bestMoves.add(i) }
+                else if (score == bestScore) bestMoves.add(i)
             }
             if (bestMoves.isNotEmpty()) return bestMoves.random()
         }
@@ -252,8 +222,7 @@ object MiniGameEngine {
         if (isMaximizing) {
             var best = Int.MIN_VALUE
             for (i in free) {
-                val orig = board[i]
-                board[i] = "0"
+                val orig = board[i]; board[i] = "0"
                 best = maxOf(best, minimax(board, depth + 1, false))
                 board[i] = orig
             }
@@ -261,8 +230,7 @@ object MiniGameEngine {
         } else {
             var best = Int.MAX_VALUE
             for (i in free) {
-                val orig = board[i]
-                board[i] = "×"
+                val orig = board[i]; board[i] = "×"
                 best = minOf(best, minimax(board, depth + 1, true))
                 board[i] = orig
             }
@@ -288,17 +256,14 @@ object MiniGameEngine {
         gameLoop = object : Runnable {
             override fun run() {
                 if (!isActive || currentGame != "INVADERS") return
-                val reachedShip = invaderTrack.removeAt(0)
-                if (reachedShip != ".") {
+                if (invaderTrack.removeAt(0) != ".") {
                     activity.shakeScreen()
                     stopGame(activity, "💥 החללית נפגעה! ניקוד סופי: $invaderScore")
                     return
                 }
-                val nextSpawn = if (Random.nextFloat() < 0.65f) invaderSymbols.random() else "."
-                invaderTrack.add(nextSpawn)
+                invaderTrack.add(if (Random.nextFloat() < 0.65f) invaderSymbols.random() else ".")
                 renderInvaders(activity)
-                val speed = (950L - (invaderScore * 25L)).coerceAtLeast(350L)
-                handler.postDelayed(this, speed)
+                handler.postDelayed(this, (950L - (invaderScore * 25L)).coerceAtLeast(350L))
             }
         }
         renderInvaders(activity)
@@ -318,7 +283,6 @@ object MiniGameEngine {
         racerScore = 0
         for (i in 0 until 5) roadRows[i] = Pair(-1, "")
         spawnRoadObstacle()
-
         activity.memoryIndicator?.text = "🏎️ 4=שמאל | 6=ימין | 5=ירייה | 8=טורבו | AC=יציאה"
 
         gameLoop = object : Runnable {
@@ -327,8 +291,7 @@ object MiniGameEngine {
                 advanceRoad(activity)
                 if (!isActive) return
                 renderRacer(activity)
-                val speed = (700L - (racerScore * 10L)).coerceAtLeast(280L)
-                handler.postDelayed(this, speed)
+                handler.postDelayed(this, (700L - (racerScore * 10L)).coerceAtLeast(280L))
             }
         }
         renderRacer(activity)
@@ -337,20 +300,13 @@ object MiniGameEngine {
 
     private fun spawnRoadObstacle() {
         if (roadRows[1].first == -1 && Random.nextFloat() < 0.65f) {
-            val lane = Random.nextInt(3)
-            val type = if (Random.nextFloat() < 0.72f) "×" else "+"
-            roadRows[0] = Pair(lane, type)
-        } else {
-            roadRows[0] = Pair(-1, "")
-        }
+            roadRows[0] = Pair(Random.nextInt(3), if (Random.nextFloat() < 0.72f) "×" else "+")
+        } else roadRows[0] = Pair(-1, "")
     }
 
     private fun advanceRoad(activity: MainActivity) {
-        for (i in 4 downTo 1) {
-            roadRows[i] = roadRows[i - 1]
-        }
+        for (i in 4 downTo 1) roadRows[i] = roadRows[i - 1]
         spawnRoadObstacle()
-
         val bottomEvent = roadRows[4]
         if (bottomEvent.first != -1) {
             if (bottomEvent.first == carLane) {
@@ -362,9 +318,7 @@ object MiniGameEngine {
                     racerScore += 5
                     roadRows[4] = Pair(-1, "")
                 }
-            } else {
-                racerScore += 1
-            }
+            } else racerScore += 1
         }
     }
 
@@ -387,24 +341,15 @@ object MiniGameEngine {
     }
 
     fun startBombDefusal(activity: MainActivity) {
-        stopPreviousLoop()
-        isActive = true
-        currentGame = "BOMB"
-        saveDisplayState(activity, 26f)
-        bombTimeLeft = 15
-        bombScore = 0
+        stopPreviousLoop(); isActive = true; currentGame = "BOMB"; saveDisplayState(activity, 26f)
+        bombTimeLeft = 15; bombScore = 0
         activity.memoryIndicator?.text = "💣 נטרל את הפצצה! לחץ על +, −, × או ÷ | AC ליציאה"
         generateBombQuestion(activity)
-
         gameLoop = object : Runnable {
             override fun run() {
                 if (!isActive || currentGame != "BOMB") return
                 bombTimeLeft--
-                if (bombTimeLeft <= 0) {
-                    activity.shakeScreen()
-                    stopGame(activity, "💥 בום! הזמן נגמר! פצצות שנוטרלו: $bombScore")
-                    return
-                }
+                if (bombTimeLeft <= 0) { activity.shakeScreen(); stopGame(activity, "💥 בום! הזמן נגמר! פצצות שנוטרלו: $bombScore"); return }
                 activity.expressionView?.text = "⏳ זמן: ${bombTimeLeft}ש' | נוטרלו: $bombScore 💣"
                 handler.postDelayed(this, 1000)
             }
@@ -413,115 +358,58 @@ object MiniGameEngine {
     }
 
     private fun generateBombQuestion(activity: MainActivity) {
-        val a = Random.nextInt(2, 12)
-        val b = Random.nextInt(2, 10)
-        val ops = listOf("+", "−", "×", "÷")
-        expectedOp = ops.random()
-        val displayEq = when (expectedOp) {
-            "+" -> "$a [?] $b = ${a + b}"
-            "−" -> "${a + b} [?] $b = $a"
-            "×" -> "$a [?] $b = ${a * b}"
-            else -> "${a * b} [?] $b = $a"
-        }
+        val a = Random.nextInt(2, 12); val b = Random.nextInt(2, 10)
+        expectedOp = listOf("+", "−", "×", "÷").random()
+        val eq = when (expectedOp) { "+" -> "$a [?] $b = ${a + b}"; "−" -> "${a + b} [?] $b = $a"; "×" -> "$a [?] $b = ${a * b}"; else -> "${a * b} [?] $b = $a" }
         activity.expressionView?.text = "⏳ זמן: ${bombTimeLeft}ש' | נוטרלו: $bombScore 💣"
-        activity.currentView?.text = "\u202D$displayEq\u202C"
+        activity.currentView?.text = "\u202D$eq\u202C"
     }
-        fun onKeyPress(activity: MainActivity, key: String): Boolean {
-        if (!isActive) return false
-        if (key == "AC") {
-            stopGame(activity)
-            return true
-        }
 
+    fun onKeyPress(activity: MainActivity, key: String): Boolean {
+        if (!isActive) return false
+        if (key == "AC") { stopGame(activity); return true }
         when (currentGame) {
-            "ANIMALS" -> {
-                playSqueakSound()
-                val randomAnimals = List(5) { animalEmojis.random() }.joinToString(" ")
-                activity.currentView?.text = randomAnimals
-                return true
-            }
+            "ANIMALS" -> { playSqueakSound(); activity.currentView?.text = List(5) { animalEmojis.random() }.joinToString(" ") }
             "TTT" -> {
                 val idx = key.toIntOrNull()?.minus(1) ?: return true
                 if (idx in 0..8 && tttBoard[idx] !in listOf("×", "0")) {
                     tttBoard[idx] = "×"
-                    var w = checkWinnerOnBoard(tttBoard)
-                    if (w != null) {
-                        finishTicTacToe(activity, w)
-                        return true
-                    }
-                    val compMove = getSmartComputerMove()
-                    if (compMove != -1) tttBoard[compMove] = "0"
-                    w = checkWinnerOnBoard(tttBoard)
-                    if (w != null) {
-                        finishTicTacToe(activity, w)
-                    } else {
-                        updateTicTacToeUI(activity, "תורך! בחר משבצת פנויה (1-9)")
-                    }
+                    checkWinnerOnBoard(tttBoard)?.let { finishTicTacToe(activity, it); return true }
+                    val comp = getSmartComputerMove(); if (comp != -1) tttBoard[comp] = "0"
+                    val w = checkWinnerOnBoard(tttBoard)
+                    if (w != null) finishTicTacToe(activity, w) else updateTicTacToeUI(activity, "תורך! בחר משבצת פנויה (1-9)")
                 }
-                return true
             }
             "INVADERS" -> {
                 val targetIndex = invaderTrack.indexOfFirst { it != "." }
                 if (targetIndex != -1 && invaderTrack[targetIndex] == key) {
-                    invaderTrack[targetIndex] = "."
-                    invaderScore += 10
+                    invaderTrack[targetIndex] = "."; invaderScore += 10
                     if (activity.useHaptic) activity.mainContent?.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    renderInvaders(activity)
-                } else {
-                    invaderScore = (invaderScore - 2).coerceAtLeast(0)
-                    renderInvaders(activity)
-                }
-                return true
+                } else invaderScore = (invaderScore - 2).coerceAtLeast(0)
+                renderInvaders(activity)
             }
             "RACER" -> {
                 when (key) {
                     "4" -> carLane = (carLane - 1).coerceAtLeast(0)
                     "6" -> carLane = (carLane + 1).coerceAtMost(2)
-                    "5", "×" -> {
-                        for (r in 3 downTo 0) {
-                            if (roadRows[r].first == carLane && roadRows[r].second == "×") {
-                                roadRows[r] = Pair(carLane, "+")
-                                racerScore += 2
-                                break
-                            }
-                        }
-                    }
-                    "8", "+" -> {
-                        racerScore++
-                        advanceRoad(activity)
-                    }
+                    "5", "×" -> for (r in 3 downTo 0) if (roadRows[r].first == carLane && roadRows[r].second == "×") { roadRows[r] = Pair(carLane, "+"); racerScore += 2; break }
+                    "8", "+" -> { racerScore++; advanceRoad(activity) }
                 }
                 if (isActive) renderRacer(activity)
-                return true
             }
-            "BOMB" -> {
-                if (key in listOf("+", "−", "×", "÷")) {
-                    if (key == expectedOp) {
-                        bombScore++
-                        bombTimeLeft = (bombTimeLeft + 3).coerceAtMost(20)
-                        generateBombQuestion(activity)
-                    } else {
-                        bombTimeLeft = (bombTimeLeft - 3).coerceAtLeast(1)
-                        activity.shakeScreen()
-                    }
-                }
-                return true
+            "BOMB" -> if (key in listOf("+", "−", "×", "÷")) {
+                if (key == expectedOp) { bombScore++; bombTimeLeft = (bombTimeLeft + 3).coerceAtMost(20); generateBombQuestion(activity) }
+                else { bombTimeLeft = (bombTimeLeft - 3).coerceAtLeast(1); activity.shakeScreen() }
             }
         }
         return true
     }
 
     private fun finishTicTacToe(activity: MainActivity, winner: String) {
-        val msg = when (winner) {
-            "×" -> "🏆 ניצחת את המחשב! (AC ליציאה)"
-            "0" -> "🤖 המחשב ניצח הפעם! נסה שוב"
-            else -> "🤝 תיקו!"
-        }
+        val msg = when (winner) { "×" -> "🏆 ניצחת את המחשב! (AC ליציאה)"; "0" -> "🤖 המחשב ניצח הפעם! נסה שוב"; else -> "🤝 תיקו!" }
         updateTicTacToeUI(activity, msg)
         handler.postDelayed({ if (isActive && currentGame == "TTT") startTicTacToe(activity) }, 2500)
     }
 
-    private fun stopPreviousLoop() {
-        gameLoop?.let { handler.removeCallbacks(it) }
-    }
+    private fun stopPreviousLoop() { gameLoop?.let { handler.removeCallbacks(it) } }
 }
