@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
         buttonCornerRadius = prefs.getFloat("buttonCornerRadius", 60f)
     }
 
-    private fun savePreferences() {
+     fun savePreferences() {
         getSharedPreferences("calc_prefs", Context.MODE_PRIVATE).edit().apply {
             putBoolean("isRightHanded", isRightHanded)
             putBoolean("isScientificMode", isScientificMode)
